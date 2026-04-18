@@ -6,12 +6,12 @@ import { GetAllDto } from "src/common/base/base-dto/getall.dto";
 import { BaseSearch } from "src/common/base/base-search/base-search";
 import { NotFoundException } from "@nestjs/common";
 import { ErrorEnum } from "src/common/enum/error.enum";
-import { KeycloakService } from "src/keycloak/keycloak.service";
 import { UserUpdateDto } from "./dtos/user.update.dto";
 import { QueryRunner } from "typeorm";
 import { UserRoleEntity } from "../role/entity/user-role.entity";
 import { RedisService } from "src/redis/redis.service";
 import { UpdateManyDto } from "src/common/base/base-dto/update-many.dto";
+import * as bcrypt from "bcrypt";
 
 
 export class UserRepository extends Repository<UserEntity> {
@@ -19,7 +19,6 @@ export class UserRepository extends Repository<UserEntity> {
   constructor(
     @InjectRepository(UserEntity)
     repo: Repository<UserEntity>,
-    private readonly keycloakService: KeycloakService,
     private readonly dataSource: DataSource,
     private readonly cacheService: RedisService
   ) {
@@ -53,17 +52,15 @@ export class UserRepository extends Repository<UserEntity> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
-    let keycloakId = '';
 
     try {
-      const { email, password, roles, ...rest } = body;
+      const { roles, password, ...rest } = body;
 
-      keycloakId = await this.keycloakService.createUser({ email, password });
+      const hashedPassword = await bcrypt.hash(password, 10);
 
       const user = queryRunner.manager.create(UserEntity, {
         ...rest,
-        email,
-        keycloak_id: keycloakId,
+        password: hashedPassword,
       });
 
       const savedUser = await queryRunner.manager.save(user);
@@ -74,9 +71,6 @@ export class UserRepository extends Repository<UserEntity> {
       return savedUser;
     } catch (error) {
       await queryRunner.rollbackTransaction();
-      if (keycloakId) {
-        await this.keycloakService.deleteUser(keycloakId);
-      }
       throw error;
     } finally {
       await queryRunner.release();
@@ -90,7 +84,6 @@ export class UserRepository extends Repository<UserEntity> {
       .select([
         "user.id as id",
         "user.name as name",
-        "user.student_code as student_code",
         "user.email as email",
         "user.phone as phone",
         "user.is_active as is_active",
@@ -147,30 +140,28 @@ export class UserRepository extends Repository<UserEntity> {
     return user;
   }
 
+  async findByEmail(email: string) {
+    return await this.findOne({ where: { email } });
+  }
+
   async activate(body: UpdateManyDto) {
     const { ids } = body;
-
     await this.update({ id: In(ids) }, { is_active: true });
     await this.cacheService.del(ids.map(id => `identity:user:${id}`));
-
     return { ids };
   }
 
   async inactivate(body: UpdateManyDto) {
     const { ids } = body;
-
     await this.update({ id: In(ids) }, { is_active: false });
     await this.cacheService.del(ids.map(id => `identity:user:${id}`));
-
     return { ids };
   }
 
   async deleteUser(body: UpdateManyDto) {
     const { ids } = body;
-
     await this.update({ id: In(ids) }, { is_deleted: true });
     await this.cacheService.del(ids.map(id => `identity:user:${id}`));
-
     return { ids };
   }
 
@@ -205,7 +196,6 @@ export class UserRepository extends Repository<UserEntity> {
         queryRunner.manager.update(UserEntity, { id }, updateData),
       ]);
 
-      await this.keycloakService.updateUser({ keycloakId: rows[0].keycloak_id, email: updateData.email });
       await queryRunner.commitTransaction();
       await this.cacheService.del(`identity:user:${id}`);
 
