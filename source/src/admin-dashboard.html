@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Rush - Admin Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 0; color: #334155; display: flex; }
+        
+        /* Sidebar Navigation */
+        .sidebar { width: 250px; background: #1e293b; color: #f8fafc; min-height: 100vh; padding: 20px 0; }
+        .brand { font-size: 20px; font-weight: bold; padding: 0 20px 20px; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 10px; color: #38bdf8;}
+        .nav-link { display: block; padding: 15px 20px; color: #cbd5e1; text-decoration: none; transition: 0.2s; border-left: 3px solid transparent; }
+        .nav-link:hover, .nav-link.active { background: #0f172a; color: #fff; border-left-color: #38bdf8; }
+
+        /* Main Content */
+        .main-content { flex: 1; padding: 30px; }
+        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .header-actions h2 { margin: 0; color: #0f172a; }
+        
+        /* Controls */
+        .controls { display: flex; gap: 15px; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        .search-box { flex: 1; position: relative; }
+        .search-box i { position: absolute; left: 15px; top: 12px; color: #94a3b8; }
+        .search-box input { width: 100%; padding: 10px 10px 10px 40px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; outline: none; }
+        .filter-select { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; background: #fff; }
+
+        .btn-primary { background: #1976d2; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; display: flex; align-items: center; gap: 8px;}
+        .btn-primary:hover { background: #1565c0; }
+        .btn-danger { background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-secondary { background: #e2e8f0; color: #475569; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .btn-secondary:hover { background: #cbd5e1; }
+
+        /* Data Table */
+        .table-container { background: #fff; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e2e8f0; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th, td { padding: 15px 20px; border-bottom: 1px solid #e2e8f0; }
+        th { background: #f8fafc; font-weight: 600; color: #64748b; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+        tr:hover { background: #f1f5f9; }
+        
+        .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+        .status-upcoming { background: #dcfce7; color: #166534; }
+        .status-past { background: #f1f5f9; color: #64748b; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(2px); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-overlay.hidden { display: none; }
+        .modal-box { background: white; padding: 30px; border-radius: 12px; width: 450px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; color: #475569; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+        
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="brand"><i class="fa-solid fa-ticket"></i> Ticket Rush Admin</div>
+        <a href="#" class="nav-link active"><i class="fa-solid fa-film"></i> Showtimes</a>
+        <a href="seat-admin-test.html" class="nav-link"><i class="fa-solid fa-map"></i> Seat Templates</a>
+        <a href="#" class="nav-link"><i class="fa-solid fa-users"></i> Users</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="header-actions">
+            <h2>Showtime Management</h2>
+            <button class="btn-primary" onclick="openCreateModal()"><i class="fa-solid fa-plus"></i> Schedule New Show</button>
+        </div>
+
+        <div class="controls">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="search-input" placeholder="Search by Movie Title..." onkeyup="filterTable()">
+            </div>
+            <select class="filter-select" id="filter-hall" onchange="filterTable()">
+                <option value="all">All Halls</option>
+                <!-- Populated dynamically -->
+            </select>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Movie Title</th>
+                        <th>Hall</th>
+                        <th>Start Time</th>
+                        <th>Available Seats</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="showtime-table-body">
+                    <tr><td colspan="6" style="text-align: center;">Loading data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Create Showtime Modal -->
+    <div id="create-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h2 style="margin-top: 0;">Schedule New Show</h2>
+            
+            <div class="form-group">
+                <label>Movie Title</label>
+                <input type="text" id="movie-title" placeholder="e.g., Avengers: Secret Wars">
+            </div>
+            
+            <div style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 2;">
+                    <label>Date & Time</label>
+                    <input type="datetime-local" id="start-time">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Duration (mins)</label>
+                    <input type="number" id="duration" value="120">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Seat Blueprint (Template)</label>
+                <select id="template-select">
+                    <option value="">Loading templates...</option>
+                </select>
+                <small style="color: #94a3b8; font-size: 12px;">The Hall name and grid size will be inherited from the blueprint.</small>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeCreateModal()">Cancel</button>
+                <button class="btn-primary" id="btn-save-show" onclick="executeCreateShowtime()">Create & Apply Layout</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        let allShowtimes = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchShowtimes();
+        });
+
+        // --- READ: Fetch and Display ---
+        async function fetchShowtimes() {
+            try {
+                // Assuming your controller has a GET /admin/showtimes mapping to adminService.getShowtimes()
+                const res = await fetch(`${API_BASE}/admin/showtimes`);
+                if (!res.ok) throw new Error("Failed to fetch");
+                
+                allShowtimes = await res.json();
+                populateHallFilter();
+                renderTable(allShowtimes);
+            } catch (err) {
+                console.error(err);
+                document.getElementById('showtime-table-body').innerHTML = `<tr><td colspan="6" style="text-align: center; color: red;">Failed to load data. Ensure NestJS backend is running.</td></tr>`;
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('showtime-table-body');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center;">No showtimes found. Create one!</td></tr>`;
+                return;
+            }
+
+            const now = new Date();
+
+            data.forEach(show => {
+                const showDate = new Date(show.startTime);
+                const isUpcoming = showDate > now;
+                const statusHtml = isUpcoming 
+                    ? `<span class="status-badge status-upcoming">Upcoming</span>` 
+                    : `<span class="status-badge status-past">Past</span>`;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="font-weight: bold;">${show.movieTitle}</td>
+                        <td>${show.hallName}</td>
+                        <td>${showDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                        <td>${show.availableSeats} / ${show.totalSeats}</td>
+                        <td>${statusHtml}</td>
+                        <td>
+                            <button class="btn-secondary" onclick="alert('Viewing seats for ${show.id}')" title="View Seats"><i class="fa-solid fa-eye"></i></button>
+                            <button class="btn-danger" onclick="deleteShowtime('${show.id}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // --- FILTERS & SEARCH ---
+        function populateHallFilter() {
+            const select = document.getElementById('filter-hall');
+            const uniqueHalls = [...new Set(allShowtimes.map(s => s.hallName))];
+            
+            select.innerHTML = '<option value="all">All Halls</option>';
+            uniqueHalls.forEach(hall => {
+                if (hall) select.innerHTML += `<option value="${hall}">${hall}</option>`;
+            });
+        }
+
+        function filterTable() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const hallFilter = document.getElementById('filter-hall').value;
+
+            const filtered = allShowtimes.filter(show => {
+                const matchesSearch = show.movieTitle.toLowerCase().includes(searchTerm);
+                const matchesHall = hallFilter === 'all' || show.hallName === hallFilter;
+                return matchesSearch && matchesHall;
+            });
+
+            renderTable(filtered);
+        }
+
+        // --- CREATE: Smart Flow ---
+        async function openCreateModal() {
+            document.getElementById('create-modal').classList.remove('hidden');
+            const select = document.getElementById('template-select');
+            
+            // Fetch available templates for the dropdown
+            try {
+                const res = await fetch(`${API_BASE}/admin/seat-templates`);
+                const templates = await res.json();
+                
+                select.innerHTML = '<option value="" disabled selected>-- Select Blueprint --</option>';
+                templates.forEach(t => {
+                    select.innerHTML += `<option value="${t.templateId}">${t.templateName} (${t.hallName})</option>`;
+                });
+            } catch (err) {
+                select.innerHTML = '<option value="">Error loading templates</option>';
+            }
+        }
+
+        function closeCreateModal() {
+            document.getElementById('create-modal').classList.add('hidden');
+        }
+
+        async function executeCreateShowtime() {
+            const title = document.getElementById('movie-title').value;
+            const start = document.getElementById('start-time').value;
+            const duration = document.getElementById('duration').value;
+            const templateId = document.getElementById('template-select').value;
+            const btn = document.getElementById('btn-save-show');
+
+            if (!title || !start || !templateId) return alert("Please fill all required fields and select a template.");
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+
+            try {
+                // STEP 1: Fetch the specific template to get its dimensions and hall name
+                const tRes = await fetch(`${API_BASE}/admin/seat-template/${templateId}`);
+                const templateData = await tRes.json();
+
+                // STEP 2: Create the core Showtime with inherited dimensions
+                const createRes = await fetch(`${API_BASE}/admin/showtime`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        movieTitle: title,
+                        startTime: new Date(start).toISOString(),
+                        durationMinutes: parseInt(duration),
+                        hallName: templateData.hallName,
+                        rows: templateData.dimensions.rows,
+                        cols: templateData.dimensions.columns
+                    })
+                });
+
+                if (!createRes.ok) throw new Error("Failed to create showtime");
+                const newShow = await createRes.json();
+
+                // STEP 3: Apply the template constraints to the newly generated seats
+                const applyRes = await fetch(`${API_BASE}/admin/showtime/${newShow.id}/apply-template`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ templateId })
+                });
+
+                if (!applyRes.ok) throw new Error("Showtime created, but failed to apply template.");
+
+                // Success
+                closeCreateModal();
+                fetchShowtimes(); // Refresh the table
+                alert("Successfully scheduled movie and applied seat blueprint!");
+
+            } catch (err) {
+                console.error(err);
+                alert("An error occurred during creation. Check console.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Create & Apply Layout';
+            }
+        }
+
+        // --- DELETE ---
+        async function deleteShowtime(id) {
+            if (!confirm("Are you sure you want to delete this showtime? This will also delete all associated tickets/seats!")) return;
+
+            try {
+                // NOTE: Make sure your NestJS controller has a @Delete('showtime/:id') endpoint
+                const res = await fetch(`${API_BASE}/admin/showtime/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    fetchShowtimes(); // Refresh
+                } else {
+                    alert("Failed to delete. Make sure your NestJS API has a DELETE endpoint configured.");
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    </script>
+</body>
+</html>

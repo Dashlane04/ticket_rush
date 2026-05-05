@@ -1,17 +1,30 @@
-import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
+﻿import { Controller, Post, Get, Body, Request, Param } from '@nestjs/common';
+
 import { TicketsService } from './tickets.service';
 import { BookTicketDto } from './dto/book-ticket.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('tickets')
 export class TicketsController {
   constructor(private readonly ticketsService: TicketsService) {}
 
-  @UseGuards(JwtAuthGuard) // ensure the user is logged in
   @Post('reserve')
   async reserve(@Request() req, @Body() dto: BookTicketDto) {
-    // Flow trigger-point
-    const userId = req.user.id;
+    const userId = req.user?.id ?? 'guest-user';
     return await this.ticketsService.reserveRequest(dto, userId);
+  }
+
+  @Get('showtimes')
+  async getShowtimes() {
+    return await this.ticketsService.getShowtimeList();
+  }
+
+  @Get('showtimes/:id')
+  async getShowtime(@Param('id') showtimeId: string) {
+    return await this.ticketsService.getShowtimeById(showtimeId);
+  }
+
+  @Get(':id/seats')
+  async getSeatMap(@Param('id') showtimeId: string) {
+    return await this.ticketsService.getSeatMap(showtimeId);
   }
 }
