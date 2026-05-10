@@ -46,6 +46,25 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* TicketRush Custom Colors */
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-border: var(--bg-border);
+  
+  --color-text-heading: var(--text-heading);
+  --color-text-body: var(--text-body);
+  --color-text-muted: var(--text-muted);
+  
+  --color-brand-primary: var(--color-brand-primary);
+  --color-brand-primary-hover: var(--color-brand-primary-hover);
+  --color-brand-secondary: var(--color-brand-secondary);
+  --color-brand-accent: var(--color-brand-accent);
+
+  --color-state-available: var(--state-available);
+  --color-state-selected: var(--state-selected);
+  --color-state-locked: var(--state-locked);
+  --color-state-sold: var(--state-sold);
 }
 
 :root {
@@ -81,6 +100,25 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* TicketRush Custom Colors (Light Mode) */
+  --bg-base: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-border: #E2E8F0;
+  
+  --text-heading: #0F172A;
+  --text-body: #334155;
+  --text-muted: #64748B;
+  
+  --color-brand-primary: #E11D48;
+  --color-brand-primary-hover: #BE123C;
+  --color-brand-secondary: #0F172A;
+  --color-brand-accent: #FCA5A5;
+
+  --state-available: #F1F5F9;
+  --state-selected: #10B981;
+  --state-locked: #F59E0B;
+  --state-sold: #475569;
 }
 
 .dark {
@@ -115,6 +153,25 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* TicketRush Custom Colors (Dark Mode) */
+  --bg-base: #0B0F19;
+  --bg-surface: #1E293B;
+  --bg-border: #334155;
+  
+  --text-heading: #F8FAFC;
+  --text-body: #CBD5E1;
+  --text-muted: #94A3B8;
+  
+  --color-brand-primary: #E11D48;
+  --color-brand-primary-hover: #BE123C;
+  --color-brand-secondary: #0F172A;
+  --color-brand-accent: #FCA5A5;
+
+  --state-available: #F1F5F9;
+  --state-selected: #10B981;
+  --state-locked: #F59E0B;
+  --state-sold: #475569;
 }
 
 @layer base {
