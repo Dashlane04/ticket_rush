@@ -42,4 +42,57 @@ export class RedisService {
     // ioredis uses .del() to delete keys
     return await this.redis.del(key); 
   }
+
+
+  // --- SETS (For Active Users in the Venue) ---
+  async sAdd(key: string, ...members: string[]) {
+    return this.redis.sadd(key, ...members);
+  }
+  async sRem(key: string, ...members: string[]) {
+    return this.redis.srem(key, ...members);
+  }
+  async sIsMember(key: string, member: string) {
+    return this.redis.sismember(key, member);
+  }
+  async sCard(key: string) {
+    return this.redis.scard(key); // Returns count of active users
+  }
+
+  // --- SORTED SETS (For the Waiting Room Queue) ---
+  // 'NX' ensures we don't overwrite their original entry timestamp!
+  async zAdd(key: string, score: number, member: string) {
+    return this.redis.zadd(key, 'NX', score, member); 
+  }
+  async zRank(key: string, member: string) {
+    return this.redis.zrank(key, member); // Returns their 0-indexed position
+  }
+  async zRange(key: string, start: number, stop: number) {
+    return this.redis.zrange(key, start, stop); // Gets the next N users
+  }
+  async zRem(key: string, ...members: string[]) {
+    return this.redis.zrem(key, ...members);
+  }
+
+  // Gets members whose score (timestamp) falls between a min and max value
+  async zRangeByScore(key: string, min: number, max: number) {
+    return this.redis.zrangebyscore(key, min, max);
+  }
+
+
+  // --- MUTEX LOCKING ---
+  // Tries to grab a lock. Returns true if successful, false if someone else has it.
+  async acquireLock(key: string, ttlMilliseconds: number): Promise<boolean> {
+    // 'PX' sets the expiry in milliseconds
+    // 'NX' ensures it ONLY sets the value if it doesn't already exist
+    const result = await this.redis.set(key, 'locked', 'PX', ttlMilliseconds, 'NX');
+    
+    // Redis returns 'OK' if it successfully set the lock, or null if it failed (NX condition)
+    return result === 'OK'; 
+  }
+
+  // --- SORTED SETS (Overwriting) ---
+  // We remove the 'NX' flag so this will constantly update an existing user's score!
+  async zAddOverwrite(key: string, score: number, member: string) {
+    return this.redis.zadd(key, score, member); 
+  }
 }

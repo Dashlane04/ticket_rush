@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Rush - Select Seats</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style id="base-styles">
+        :root {
+            --bg-color: #f3f4f6;
+            --surface: #ffffff;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+        }
+
+        body { font-family: 'Inter', sans-serif; background: var(--bg-color); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; color: var(--text-main); min-height: 100vh;}
+        
+        .container { max-width: 1000px; width: 100%; background: var(--surface); border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1); overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--border);}
+        .header { background: #0f172a; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; color: white;}
+        .header h1 { margin: 0; font-size: 20px; display: flex; align-items: center; gap: 10px;}
+        .movie-info { text-align: right; }
+        .movie-info h2 { margin: 0; font-size: 18px; color: #38bdf8;}
+        .movie-info p { margin: 4px 0 0; font-size: 12px; color: #94a3b8; }
+
+        .main-content { display: flex; flex-direction: column; align-items: center; padding: 40px 20px; position: relative;}
+        
+        .screen-curve { width: 80%; height: 60px; border-top: 4px solid #cbd5e1; border-radius: 50% / 100% 100% 0 0; position: relative; margin-bottom: 50px; display: flex; justify-content: center; box-shadow: 0 -15px 30px -10px rgba(0,0,0,0.05);}
+        .screen-curve span { position: absolute; bottom: 10px; font-weight: 700; color: #94a3b8; letter-spacing: 8px; font-size: 12px;}
+
+        .grid-wrapper { overflow-x: auto; max-width: 100%; padding-bottom: 20px; }
+        .grid { display: grid; gap: 6px; user-select: none; justify-content: center; }
+        .cell-slot { width: 32px; height: 32px; position: relative; }
+        
+        .seat { width: 100%; height: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; box-sizing: border-box; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s; background: var(--surface); color: var(--text-main); border: 2px solid var(--border);}
+        .seat:hover:not(.empty):not(.sold):not(.unavailable) { transform: scale(1.15); z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.15);}
+        
+        .seat.empty { display: none; }
+        .seat.sold { background: #f1f5f9 !important; color: #94a3b8 !important; border: 1px dashed #cbd5e1 !important; text-decoration: line-through; cursor: not-allowed; }
+        .seat.unavailable { background: #ef4444 !important; color: white !important; border: none !important; cursor: not-allowed;}
+        
+        .seat.held { background: #fff7ed; color: #c2410c; border: 2px solid #f97316; cursor: not-allowed; }
+        .seat.selected { background: var(--primary) !important; color: white !important; border: none !important; transform: scale(1.1); box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);}
+
+        .legend { display: flex; gap: 20px; justify-content: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); width: 100%; font-size: 13px; font-weight: 500;}
+        .legend-item { display: flex; align-items: center; gap: 8px; color: var(--text-muted);}
+        .legend-color { width: 16px; height: 16px; border-radius: 4px; }
+
+        .footer { background: #f8fafc; padding: 20px 30px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;}
+        .cart-info { font-size: 14px; color: var(--text-muted);}
+        .cart-info strong { font-size: 20px; color: var(--text-main); margin-left: 8px;}
+        
+        button { cursor: pointer; font-family: inherit; font-weight: 600; outline: none; border: none; border-radius: 8px; transition: 0.2s;}
+        .btn-primary { background: var(--primary); color: white; padding: 12px 24px; font-size: 15px; box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);}
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px);}
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Fullscreen Overlay / Checkout View */
+        .overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1000;}
+        .overlay.hidden { display: none; }
+        .checkout-box { background: var(--surface); padding: 40px; border-radius: 16px; width: 500px; max-width: 90%; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);}
+        .checkout-box h2 { margin: 0 0 10px; color: var(--text-main); font-size: 24px;}
+        .checkout-box p { color: var(--text-muted); margin-bottom: 30px;}
+        
+        .receipt { background: #f8fafc; border: 1px dashed var(--border); padding: 20px; border-radius: 12px; text-align: left; margin-bottom: 30px;}
+        .receipt-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; color: var(--text-main);}
+        .receipt-row.total { border-top: 1px solid var(--border); padding-top: 12px; font-weight: 700; font-size: 16px;}
+
+        /* --- VIRTUAL QUEUE WAITING ROOM --- */
+        #waiting-room { position: fixed; inset: 0; background: var(--bg-color); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 2000; }
+        .queue-box { background: var(--surface); padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; max-width: 400px; width: 90%; border: 1px solid var(--border);}
+        .queue-position { font-size: 56px; font-weight: 800; color: var(--primary); margin: 10px 0; line-height: 1;}
+        .queue-spinner { border: 4px solid #f1f5f9; border-top: 4px solid var(--primary); border-radius: 50%; width: 48px; height: 48px; animation: spin 1s linear infinite; margin: 0 auto 20px auto; }
+        
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+    <style id="dynamic-styles"></style>
+</head>
+<body>
+
+    <div id="waiting-room">
+        <div class="queue-box">
+            <div class="queue-spinner"></div>
+            <h2 style="margin-top: 0;">You are in line</h2>
+            <p style="color: var(--text-muted); font-size: 14px;">Due to high demand, you have been placed in a virtual queue to access the seat map.</p>
+            <div class="queue-position" id="queue-pos-display">--</div>
+            <p style="font-weight: 600; margin-bottom: 0;">People ahead of you</p>
+            <p style="color: #f59e0b; font-size: 13px; margin-top: 24px; padding: 10px; background: #fffbeb; border-radius: 8px;">
+                <i class="fa-solid fa-triangle-exclamation"></i> Please do not refresh this page or close your browser, or you will lose your spot in line.
+            </p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1><i class="fa-solid fa-ticket"></i> Ticket Rush</h1>
+            <div class="movie-info">
+                <h2 id="movie-title">Loading...</h2>
+                <p>Hall A &bull; May 6, 2026, 1:59 PM</p>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="screen-curve"><span>SCREEN</span></div>
+            
+            <div class="grid-wrapper">
+                <div id="seat-grid" class="grid"></div>
+            </div>
+
+            <div class="legend" id="dynamic-legend">
+                </div>
+        </div>
+
+        <div class="footer">
+            <div class="cart-info">
+                Selected: <span id="selected-count" style="font-weight: 600; color: var(--text-main);">0</span>
+                <span style="margin: 0 15px; color: var(--border);">|</span>
+                Total: <strong id="total-price">$0</strong>
+            </div>
+            <button class="btn-primary" id="btn-proceed" disabled onclick="initiateCheckout()">Proceed to Checkout</button>
+        </div>
+    </div>
+
+    <div id="checkout-modal" class="overlay hidden">
+        <div class="checkout-box">
+            
+            <div id="payment-actions">
+                <h2>Order Summary</h2>
+                <p>Please review your tickets before finalizing the purchase.</p>
+                
+                <div class="receipt">
+                    <div class="receipt-row"><span>Event:</span> <strong id="chk-movie">Loading...</strong></div>
+                    <div class="receipt-row"><span>Seats:</span> <strong id="chk-seats">--</strong></div>
+                    <div class="receipt-row total"><span>Total Price:</span> <span style="color: #166534;" id="chk-total">$0</span></div>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-primary" style="background: #f1f5f9; color: var(--text-main); flex: 1;" onclick="cancelCheckout()">Cancel</button>
+                    <button class="btn-primary" style="flex: 2; background: #166534;" onclick="finalizePurchase()"><i class="fa-regular fa-credit-card"></i> Confirm & Pay</button>
+                </div>
+            </div>
+
+            <div id="success-details" style="display: none;">
+                <div style="width: 60px; height: 60px; background: #dcfce7; color: #166534; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 30px; margin: 0 auto 20px;">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+                <h2>Payment Successful!</h2>
+                <p>Your tickets have been secured. Have fun!</p>
+                
+                <div style="margin: 30px 0; padding: 20px; border: 2px dashed #cbd5e1; border-radius: 12px; display: inline-block;">
+                    <img id="qr-code-img" src="" alt="QR Code" style="width: 150px; height: 150px;">
+                </div>
+                
+                <p style="font-size: 13px; color: var(--text-muted);">Transaction ID: <strong id="txn-id">--</strong></p>
+                <button class="btn-primary" style="width: 100%; margin-top: 20px;" onclick="window.location.reload()">Back to Home</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="idle-warning-modal" class="overlay hidden" style="z-index: 3000;">
+        <div class="checkout-box" style="width: 400px;">
+            <div style="font-size: 40px; color: #f59e0b; margin-bottom: 10px;"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            <h2>Are you still there?</h2>
+            <p>Due to high demand, your session will expire in <strong id="idle-countdown" style="color: #ef4444; font-size: 18px;">30</strong> seconds to allow other fans to select seats.</p>
+            <button class="btn-primary" style="width: 100%;" onclick="resetIdleTimer()">I'm still here!</button>
+        </div>
+    </div>
+
+    <div id="idle-kicked-modal" class="overlay hidden" style="z-index: 3000;">
+        <div class="checkout-box" style="width: 400px;">
+            <div style="font-size: 40px; color: #ef4444; margin-bottom: 10px;"><i class="fa-solid fa-door-closed"></i></div>
+            <h2>Session Expired</h2>
+            <p>You have been removed from the seat map due to inactivity so others can purchase tickets.</p>
+            <button class="btn-primary" style="width: 100%;" onclick="window.location.reload()">Rejoin Queue</button>
+        </div>
+    </div>
+
+    <div id="loader" class="overlay hidden" style="z-index: 2000;">
+        <div style="text-align: center; color: white;">
+            <div class="queue-spinner" style="border-top-color: white;"></div>
+            <h3 id="loader-text" style="font-weight: 500;">Processing...</h3>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        
+        // --- 1. USER SESSION CONFIG ---
+        // Generates a unique ID for this browser tab to track them in the queue and checkout
+        // --- 1. USER SESSION CONFIG ---
+        // Grab existing ID from the tab session, or create a new one if it's their first time here
+        let CURRENT_USER_ID = sessionStorage.getItem('TR_USER_ID');
+        if (!CURRENT_USER_ID) {
+            CURRENT_USER_ID = 'USER-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+            sessionStorage.setItem('TR_USER_ID', CURRENT_USER_ID);
+        }
+        
+        const SHOWTIME_ID = 'cbb89fc3-a467-4ded-b634-767c36211e9e';// Replace dynamically via URL or template injection!
+
+        let seatData = [];
+        let pollingInterval = null;
+        let queueInterval = null;
+        
+        const selectedSeats = new Map(); 
+        let locallyLockedSeats = new Set();
+        let locksAcquired = false; 
+
+        // --- IDLE TRACKING ENGINE ---
+        let idleSeconds = 0;
+        let idleInterval = null;
+        const IDLE_LIMIT_SECONDS = 120; // Kick after 2 minutes
+        const WARNING_SECONDS = 90;     // Warn at 1 minute 30 seconds
+
+        function resetIdleTimer() {
+            idleSeconds = 0;
+            const warningModal = document.getElementById('idle-warning-modal');
+            if (!warningModal.classList.contains('hidden')) {
+                warningModal.classList.add('hidden');
+            }
+        }
+
+        function startIdleTracker() {
+            // 1. Listen for actual human physical interaction
+            ['mousemove', 'mousedown', 'keypress', 'touchstart', 'scroll'].forEach(evt => 
+                document.addEventListener(evt, resetIdleTimer, true)
+            );
+
+            // 2. Start the heartbeat watcher
+            idleInterval = setInterval(() => {
+                idleSeconds++;
+
+                // Trigger Warning
+                if (idleSeconds === WARNING_SECONDS) {
+                    document.getElementById('idle-warning-modal').classList.remove('hidden');
+                }
+
+                // Update Countdown Timer on the warning modal
+                if (idleSeconds > WARNING_SECONDS && idleSeconds < IDLE_LIMIT_SECONDS) {
+                    document.getElementById('idle-countdown').textContent = IDLE_LIMIT_SECONDS - idleSeconds;
+                }
+
+                // Execute the Eviction
+                if (idleSeconds >= IDLE_LIMIT_SECONDS) {
+                    executeIdleEviction();
+                }
+            }, 1000);
+        }
+
+        async function executeIdleEviction() {
+            // Stop tracking
+            clearInterval(idleInterval);
+            if (pollingInterval) clearInterval(pollingInterval);
+            if (queueInterval) clearInterval(queueInterval);
+
+            // ---> THE FIX: Force them to drop their locked seats! <---
+            if (locallyLockedSeats && locallyLockedSeats.size > 0) {
+                await fetch(`${API_BASE}/tickets/reserve/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        showtimeId: SHOWTIME_ID, 
+                        seatIds: Array.from(locallyLockedSeats) 
+                    })
+                });
+            }
+
+            // 1. Tell backend to give this slot to the next person immediately
+            await fetch(`${API_BASE}/tickets/${SHOWTIME_ID}/queue/leave`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: CURRENT_USER_ID })
+            });
+
+            // 2. Destroy their local session
+            sessionStorage.removeItem('TR_USER_ID');
+
+            // 3. Show the "You got booted" UI
+            document.getElementById('idle-warning-modal').classList.add('hidden');
+            document.getElementById('checkout-modal').classList.add('hidden');
+            document.getElementById('idle-kicked-modal').classList.remove('hidden');
+        }
+
+        // --- 2. VIRTUAL QUEUE LOGIC ---
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('movie-title').textContent = SHOWTIME_ID.split('-')[0].toUpperCase();
+            
+            // Start the Bouncer check instead of immediately loading the map
+            joinQueue();
+        });
+
+        async function joinQueue() {
+            try {
+                const res = await fetch(`${API_BASE}/tickets/${SHOWTIME_ID}/queue/join`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: CURRENT_USER_ID })
+                });
+                
+                if (!res.ok) throw new Error("Failed to join queue");
+                const data = await res.json();
+                handleQueueResponse(data);
+                
+            } catch(e) {
+                console.error("Queue system unreachable. Entering fallback mode.");
+                // If queue fails, let them into the map anyway so the app doesn't break
+                document.getElementById('waiting-room').style.display = 'none';
+                pollSeatStatus();
+            }
+        }
+
+        async function checkQueueStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/tickets/${SHOWTIME_ID}/queue/status/${CURRENT_USER_ID}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    handleQueueResponse(data);
+                }
+            } catch(e) {}
+        }
+
+        function handleQueueResponse(data) {
+            if (data.status === 'ENTER') {
+                document.getElementById('waiting-room').style.display = 'none';
+                
+                if (!pollingInterval) pollSeatStatus(); 
+                if (!idleInterval) startIdleTracker(); 
+
+                // ---> THE FIX: Start the heartbeat even if they instantly entered! <---
+                // This guarantees the backend Ghost Sweeper knows they are alive.
+                if (!queueInterval) queueInterval = setInterval(checkQueueStatus, 3000);
+
+            } else if (data.status === 'WAIT') {
+                document.getElementById('queue-pos-display').textContent = data.position;
+                
+                if (!queueInterval) queueInterval = setInterval(checkQueueStatus, 3000);
+                
+            } else if (data.status === 'ERROR') {
+                // ---> THE FIX: Physically lock them out of the map! <---
+                
+                // 1. Stop all background processes instantly
+                if (queueInterval) clearInterval(queueInterval);
+                if (pollingInterval) clearInterval(pollingInterval);
+                if (idleInterval) clearInterval(idleInterval);
+
+                // 2. Hide everything they were looking at
+                document.getElementById('waiting-room').style.display = 'none';
+                document.getElementById('checkout-modal').classList.add('hidden');
+                document.getElementById('idle-warning-modal').classList.add('hidden');
+                
+                // 3. Repurpose the Kicked Modal to tell them exactly what happened
+                const kickedModal = document.getElementById('idle-kicked-modal');
+                kickedModal.querySelector('h2').textContent = "Connection Lost";
+                kickedModal.querySelector('p').textContent = "You lost connection to the server or timed out. To ensure fairness, your spot was given to the next person.";
+                kickedModal.classList.remove('hidden');
+
+                // 4. Erase their session so when they click "Rejoin", they legitimately go to the back of the line
+                sessionStorage.removeItem('TR_USER_ID');
+            }
+        }
+        
+        // Graceful Queue Exit: Tell backend to free up the spot if the user closes the tab!
+        window.addEventListener('beforeunload', () => {
+            const blob = new Blob([JSON.stringify({ userId: CURRENT_USER_ID })], { type: 'application/json' });
+            navigator.sendBeacon(`${API_BASE}/tickets/${SHOWTIME_ID}/queue/leave`, blob);
+        });
+
+        // --- 3. SEAT MAP LOGIC ---
+        function getDynamicColor(typeStr) {
+            if (typeStr === 'normal') return '#10b981';
+            if (typeStr === 'vip') return '#f43f5e';
+            if (typeStr === 'sweetbox') return '#8b5cf6';
+
+            let hash = 0;
+            for (let i = 0; i < typeStr.length; i++) hash = typeStr.charCodeAt(i) + ((hash << 5) - hash);
+            return `hsl(${Math.abs(hash) % 360}, 70%, 45%)`; 
+        }
+
+        function injectDynamicStyles(uniqueTypes) {
+            let cssStr = '';
+            let legendHtml = `
+                <div class="legend-item"><div class="legend-color" style="background:var(--surface); border: 2px solid var(--border);"></div> Available</div>
+                <div class="legend-item"><div class="legend-color" style="background:#f97316;"></div> Held (In Cart)</div>
+                <div class="legend-item"><div class="legend-color" style="background:#cbd5e1;"></div> Sold</div>
+                <div style="width: 1px; height: 16px; background: var(--border); margin: 0 10px;"></div>
+            `;
+
+            uniqueTypes.forEach(type => {
+                const color = getDynamicColor(type);
+                cssStr += `.seat.available[data-type="${type}"] { border-color: ${color}; color: var(--text-main); }\n`;
+                
+                const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
+                legendHtml += `<div class="legend-item"><div class="legend-color" style="border: 2px solid ${color};"></div> ${capitalizedType}</div>`;
+            });
+
+            document.getElementById('dynamic-styles').innerHTML = cssStr;
+            document.getElementById('dynamic-legend').innerHTML = legendHtml;
+        }
+
+        async function pollSeatStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/tickets/${SHOWTIME_ID}/seats`);
+                const rawSeats = await res.json();
+                
+                const parsedData = rawSeats.map(seat => {
+                    let r = seat.rowNumber; let c = seat.colNumber;
+                    if (r == null) r = seat.seatNumber ? seat.seatNumber.match(/^[A-Z]+/)[0].charCodeAt(0) - 65 : 0;
+                    if (c == null) c = seat.seatNumber ? parseInt(seat.seatNumber.match(/\d+$/)[0], 10) - 1 : 0;
+                    return { ...seat, gridRow: r, gridCol: c };
+                });
+
+                seatData = parsedData;
+
+                const grid = document.getElementById('seat-grid');
+                if (grid.children.length === 0) {
+                    const ROWS = Math.max(...parsedData.map(s => s.gridRow || 0)) + 1;
+                    const COLS = Math.max(...parsedData.map(s => s.gridCol || 0)) + 1;
+                    grid.style.gridTemplateColumns = `repeat(${COLS}, 32px)`;
+
+                    const uniqueTypes = [...new Set(parsedData.map(s => s.type).filter(t => t !== 'empty'))];
+                    injectDynamicStyles(uniqueTypes);
+
+                    for (let r = 0; r < ROWS; r++) {
+                        for (let c = 0; c < COLS; c++) {
+                            const slot = document.createElement('div');
+                            slot.className = 'cell-slot'; slot.dataset.r = r; slot.dataset.c = c;
+                            const seat = document.createElement('div');
+                            seat.className = 'seat empty'; 
+                            slot.appendChild(seat);
+                            grid.appendChild(slot);
+                        }
+                    }
+                }
+
+                parsedData.forEach(data => {
+                    const slot = document.querySelector(`.cell-slot[data-r="${data.gridRow}"][data-c="${data.gridCol}"]`);
+                    if (!slot) return;
+                    const el = slot.querySelector('.seat');
+                    
+                    if (data.type === 'empty') {
+                        el.className = 'seat empty'; return;
+                    }
+
+                    el.dataset.type = data.type;
+                    el.textContent = data.seatNumber.replace(/^[A-Z]+/, '');
+                    
+                    // Maintain user's local selection state
+                    if (selectedSeats.has(data.seatNumber)) {
+                        el.className = 'seat selected';
+                    } else if (data.status === 'sold') {
+                        el.className = 'seat sold';
+                    } else if (data.status === 'held') {
+                        el.className = 'seat held';
+                    } else if (data.status === 'unavailable' || data.status === 'broken') {
+                        el.className = 'seat unavailable';
+                    } else {
+                        el.className = 'seat available';
+                    }
+
+                    el.onclick = () => handleSeatClick(data.seatNumber, el);
+                });
+
+                if (!pollingInterval) pollingInterval = setInterval(pollSeatStatus, 1500);
+            } catch (err) {}
+        }
+
+        // --- 4. CART & CHECKOUT LOGIC ---
+        function handleSeatClick(seatId, element) {
+            if (element.classList.contains('sold') || element.classList.contains('held') || element.classList.contains('unavailable')) {
+                return; 
+            }
+
+            if (selectedSeats.has(seatId)) {
+                selectedSeats.delete(seatId);
+                element.className = 'seat available';
+            } else {
+                if (selectedSeats.size >= 8) return alert("Maximum 8 seats per transaction.");
+                
+                // Lookup price dynamically based on seat type
+                const seatInfo = seatData.find(s => s.seatNumber === seatId);
+                let price = 15; // default
+                if (seatInfo.type === 'vip') price = 40;
+                if (seatInfo.type === 'sweetbox') price = 65;
+
+                selectedSeats.set(seatId, { price });
+                element.className = 'seat selected';
+            }
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            document.getElementById('selected-count').textContent = selectedSeats.size;
+            let total = 0;
+            selectedSeats.forEach(seat => total += seat.price);
+            document.getElementById('total-price').textContent = `$${total}`;
+            document.getElementById('btn-proceed').disabled = selectedSeats.size === 0;
+        }
+
+        async function initiateCheckout() {
+            if (selectedSeats.size === 0) return;
+            document.getElementById('loader').classList.remove('hidden');
+
+            const requestedSeatIds = Array.from(selectedSeats.keys());
+
+            try {
+                const res = await fetch(`${API_BASE}/tickets/reserve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ showtimeId: SHOWTIME_ID, seatIds: requestedSeatIds })
+                });
+
+                const data = await res.json();
+                
+                if (!res.ok) {
+                    selectedSeats.clear(); updateCartUI();
+                    throw new Error(data.message || "Some seats were taken! Please pick again.");
+                }
+
+                // Locks acquired! Pause polling so they don't see blinking orange for their own seats
+                if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
+                locksAcquired = true;
+                locallyLockedSeats = new Set(requestedSeatIds);
+
+                // Populate Receipt
+                document.getElementById('chk-movie').textContent = SHOWTIME_ID.split('-')[0].toUpperCase();
+                document.getElementById('chk-seats').textContent = requestedSeatIds.join(', ');
+                document.getElementById('chk-total').textContent = document.getElementById('total-price').textContent;
+
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('checkout-modal').classList.remove('hidden');
+
+            } catch(e) {
+                document.getElementById('loader').classList.add('hidden');
+                alert(e.message);
+                pollSeatStatus(); 
+            }
+        }
+
+        async function cancelCheckout() {
+            document.getElementById('checkout-modal').classList.add('hidden');
+            
+            // ---> THE FIX: Tell backend to destroy the Redis locks instantly! <---e
+            if (locallyLockedSeats.size > 0) {
+                try {
+                    await fetch(`${API_BASE}/tickets/reserve/cancel`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            showtimeId: SHOWTIME_ID, 
+                            seatIds: Array.from(locallyLockedSeats) 
+                        })
+                    });
+                } catch (e) { console.warn("Failed to release locks", e); }
+            }
+            
+            selectedSeats.clear();
+            locallyLockedSeats.clear();
+            locksAcquired = false;
+            updateCartUI();
+            pollSeatStatus();
+        }
+
+        async function finalizePurchase() {
+            const loader = document.getElementById('loader');
+            document.getElementById('loader-text').textContent = "Processing Payment...";
+            loader.classList.remove('hidden');
+
+            try {
+                const seatIdsToPurchase = Array.from(selectedSeats.keys());
+
+                const res = await fetch(`${API_BASE}/tickets/purchase`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    // NEW: Pass the generated CURRENT_USER_ID here to satisfy the backend fix!
+                    body: JSON.stringify({ 
+                        userId: CURRENT_USER_ID,
+                        showtimeId: SHOWTIME_ID, 
+                        seatIds: seatIdsToPurchase 
+                    })
+                });
+
+                if (!res.ok) throw new Error("Payment failed. Please try again.");
+
+                loader.classList.add('hidden');
+                document.getElementById('payment-actions').style.display = 'none';
+                document.getElementById('success-details').style.display = 'block';
+
+                const txnId = "TXN-" + Math.random().toString(36).substr(2, 9).toUpperCase();
+                document.getElementById('txn-id').textContent = txnId;
+                
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=TicketRush:${txnId}`;
+                document.getElementById('qr-code-img').src = qrUrl;
+
+                selectedSeats.clear();
+                locallyLockedSeats.clear();
+                locksAcquired = false;
+
+                pollSeatStatus(); 
+
+            } catch (err) {
+                loader.classList.add('hidden');
+                alert(err.message || "An error occurred during checkout.");
+            }
+        }
+    </script>
+</body>
+</html>
