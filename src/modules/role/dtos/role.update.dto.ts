@@ -1,5 +1,3 @@
-import { RoleCreateDto } from "./role.create.dto";
+import { RoleCreateDto } from './role.create.dto';
 
-
-export class RoleUpdateDto extends RoleCreateDto {
-}
+export class RoleUpdateDto extends RoleCreateDto {}

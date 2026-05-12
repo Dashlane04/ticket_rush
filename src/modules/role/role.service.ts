@@ -1,17 +1,13 @@
-import { Injectable } from "@nestjs/common";
-import { GetAllDto } from "../../common/base/base-dto/getall.dto";
-import { RoleRepository } from "./role.repository";
-import { RoleCreateDto } from "./dtos/role.create.dto";
-import { RoleUpdateDto } from "./dtos/role.update.dto";
-import { UpdateManyDto } from "../../common/base/base-dto/update-many.dto";
-
+import { Injectable } from '@nestjs/common';
+import { GetAllDto } from '../../common/base/base-dto/getall.dto';
+import { RoleRepository } from './role.repository';
+import { RoleCreateDto } from './dtos/role.create.dto';
+import { RoleUpdateDto } from './dtos/role.update.dto';
+import { UpdateManyDto } from '../../common/base/base-dto/update-many.dto';
 
 @Injectable()
 export class RoleService {
-
-  constructor(
-    private readonly roleRepository: RoleRepository
-  ) {}
+  constructor(private readonly roleRepository: RoleRepository) {}
 
   async findAll(body: GetAllDto) {
     return await this.roleRepository.findAll(body);

@@ -1,27 +1,33 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsEmail, IsOptional, IsString, IsUUID } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class RegisterDto {
-
-  @ApiProperty({ example: "Nguyễn Văn A" })
+  @ApiProperty({ example: 'Nguyễn Văn A' })
   @IsString()
+  @MinLength(2)
   name: string;
 
-  @ApiProperty({ example: "artist@lnv.vn" })
+  @ApiProperty({ example: 'hello@example.com' })
   @IsEmail()
   email: string;
 
-  @ApiProperty({ example: "Str0ng@pass" })
+  @ApiProperty({ example: 'Str0ng@pass' })
   @IsString()
+  @MinLength(6)
   password: string;
 
-  @ApiPropertyOptional({ example: "0912345678" })
+  @ApiProperty({ example: 'Str0ng@pass' })
   @IsString()
-  @IsOptional()
-  phone?: string;
+  @MinLength(6)
+  confirmPassword: string;
 
-  @ApiPropertyOptional({ example: "uuid-tenant" })
-  @IsUUID("4")
+  @ApiPropertyOptional({ example: '0912345678' })
+  @Transform(({ value }) =>
+    typeof value === 'string' && value.trim() === '' ? undefined : value,
+  )
   @IsOptional()
-  tenant?: string;
+  @IsString()
+  @MinLength(8)
+  phone?: string;
 }

@@ -1,21 +1,29 @@
-import { Module } from "@nestjs/common";
-import { JwtModule } from "@nestjs/jwt";
-import { PassportModule } from "@nestjs/passport";
-import { TypeOrmModule } from "@nestjs/typeorm";
-import { AuthController } from "./auth.controller";
-import { AuthService } from "./auth.service";
-import { JwtStrategy } from "./jwt.strategy";
-import { JwtAuthGuard } from "./jwt-auth.guard";
-import { UserEntity } from "../user/entity/user.entity";
-import { UserRepository } from "../user/user.repository";
-import { RedisService } from "src/redis/redis.service";
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule, JwtSignOptions } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { JwtStrategy } from './jwt.strategy';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { RolesGuard } from './roles.guard';
+import { UserEntity } from '../user/entity/user.entity';
+import { UserRepository } from '../user/user.repository';
 
 @Module({
   imports: [
     PassportModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: parseInt(process.env.JWT_EXPIRES_IN ?? "1d") ?? 86400 },
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.getOrThrow<string>('JWT_SECRET'),
+        signOptions: {
+          expiresIn: (config.get<string>('JWT_EXPIRES_IN') ??
+            '15m') as JwtSignOptions['expiresIn'],
+        },
+      }),
     }),
     TypeOrmModule.forFeature([UserEntity]),
   ],
@@ -24,9 +32,9 @@ import { RedisService } from "src/redis/redis.service";
     AuthService,
     JwtStrategy,
     JwtAuthGuard,
+    RolesGuard,
     UserRepository,
-    RedisService,
   ],
-  exports: [JwtAuthGuard, JwtStrategy],
+  exports: [JwtAuthGuard, JwtStrategy, RolesGuard],
 })
-export class AuthModule { }
+export class AuthModule {}

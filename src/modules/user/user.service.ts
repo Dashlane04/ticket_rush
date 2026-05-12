@@ -1,17 +1,13 @@
-import { Injectable } from "@nestjs/common";
-import { UserCreateDto } from "./dtos/user.create.dto";
-import { UserRepository } from "./user.repository";
-import { GetAllDto } from "src/common/base/base-dto/getall.dto";
-import { UserUpdateDto } from "./dtos/user.update.dto";
-import { UpdateManyDto } from "src/common/base/base-dto/update-many.dto";
-
+import { Injectable } from '@nestjs/common';
+import { UserCreateDto } from './dtos/user.create.dto';
+import { UserRepository } from './user.repository';
+import { GetAllDto } from 'src/common/base/base-dto/getall.dto';
+import { UserUpdateDto } from './dtos/user.update.dto';
+import { UpdateManyDto } from 'src/common/base/base-dto/update-many.dto';
 
 @Injectable()
 export class UserService {
-
-  constructor(
-    private readonly userRepository: UserRepository
-  ) {}
+  constructor(private readonly userRepository: UserRepository) {}
 
   async create(body: UserCreateDto) {
     return await this.userRepository.store(body);

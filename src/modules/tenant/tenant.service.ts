@@ -1,17 +1,13 @@
-import { Injectable } from "@nestjs/common";
-import { GetAllDto } from "src/common/base/base-dto/getall.dto";
-import { TenantRepository } from "./tenant.repository";
-import { TenantCreateDto } from "./dtos/tenant.create.dto";
-import { TenantUpdateDto } from "./dtos/tenant.update.dto";
-import { UpdateManyDto } from "src/common/base/base-dto/update-many.dto";
-
+import { Injectable } from '@nestjs/common';
+import { GetAllDto } from 'src/common/base/base-dto/getall.dto';
+import { TenantRepository } from './tenant.repository';
+import { TenantCreateDto } from './dtos/tenant.create.dto';
+import { TenantUpdateDto } from './dtos/tenant.update.dto';
+import { UpdateManyDto } from 'src/common/base/base-dto/update-many.dto';
 
 @Injectable()
 export class TenantService {
-
-  constructor(
-    private readonly tenantRepository: TenantRepository
-  ) {}
+  constructor(private readonly tenantRepository: TenantRepository) {}
 
   async findAll(body: GetAllDto) {
     return await this.tenantRepository.findAll(body);

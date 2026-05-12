@@ -1,5 +1,3 @@
-import { TenantCreateDto } from "./tenant.create.dto";
+import { TenantCreateDto } from './tenant.create.dto';
 
-
-export class TenantUpdateDto extends TenantCreateDto {
-}
+export class TenantUpdateDto extends TenantCreateDto {}

@@ -1,9 +1,15 @@
-import { ApiPropertyOptional } from "@nestjs/swagger";
-import { Type } from "class-transformer";
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Min } from "class-validator";
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class GetAllDto {
-
   @ApiPropertyOptional({ example: 1 })
   @IsInt()
   @Min(1)
@@ -17,15 +23,15 @@ export class GetAllDto {
   @IsOptional()
   size?: number;
 
-  @ApiPropertyOptional({ example: "Sơn Tùng" })
+  @ApiPropertyOptional({ example: 'Sơn Tùng' })
   @IsString()
   @IsOptional()
   query?: string;
 
-  @ApiPropertyOptional({ example: "-1", enum: ["1", "-1"] })
-  @IsIn(["1", "-1"])
+  @ApiPropertyOptional({ example: '-1', enum: ['1', '-1'] })
+  @IsIn(['1', '-1'])
   @IsOptional()
-  sort?: "1" | "-1";
+  sort?: '1' | '-1';
 
   @ApiPropertyOptional({ example: true })
   @IsBoolean()

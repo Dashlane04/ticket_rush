@@ -1,4 +1,4 @@
-import { SelectQueryBuilder } from "typeorm";
+import { SelectQueryBuilder } from 'typeorm';
 
 interface BaseSearchParams {
   alias: string;
@@ -17,5 +17,5 @@ export function BaseSearch({ alias, qb, fields, keyword }: BaseSearchParams) {
     return `${alias}.${field} ILIKE :${paramKey}`;
   });
 
-  qb.andWhere(`(${conditions.join(" OR ")})`);
+  qb.andWhere(`(${conditions.join(' OR ')})`);
 }

@@ -1,14 +1,13 @@
-import { Column, CreateDateColumn, Entity, PrimaryColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, PrimaryColumn } from 'typeorm';
 
-@Entity({ name: "user_role" })
+@Entity({ name: 'user_role' })
 export class UserRoleEntity {
-
-  @PrimaryColumn({ name: "user_id", type: "uuid" })
+  @PrimaryColumn({ name: 'user_id', type: 'uuid' })
   user_id: string;
 
-  @PrimaryColumn({ name: "role_id", type: "uuid" })
+  @PrimaryColumn({ name: 'role_id', type: 'uuid' })
   role_id: string;
 
-  @CreateDateColumn({ name: "created_at", type: "timestamptz" })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   created_at: Date;
 }

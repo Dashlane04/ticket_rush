@@ -1,24 +1,22 @@
-import { In, Repository } from "typeorm";
-import { TenantEntity } from "./entity/tenant.entity";
-import { InjectRepository } from "@nestjs/typeorm";
-import { BaseSearch } from "src/common/base/base-search/base-search";
-import { GetAllDto } from "src/common/base/base-dto/getall.dto";
-import { TenantCreateDto } from "./dtos/tenant.create.dto";
-import { TenantUpdateDto } from "./dtos/tenant.update.dto";
-import { NotFoundException } from "@nestjs/common";
-import { ErrorEnum } from "../../common/enum/error.enum";
-import { RedisService } from "src/redis/redis.service";
-import { UpdateManyDto } from "src/common/base/base-dto/update-many.dto";
-
+import { In, Repository } from 'typeorm';
+import { TenantEntity } from './entity/tenant.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { BaseSearch } from 'src/common/base/base-search/base-search';
+import { GetAllDto } from 'src/common/base/base-dto/getall.dto';
+import { TenantCreateDto } from './dtos/tenant.create.dto';
+import { TenantUpdateDto } from './dtos/tenant.update.dto';
+import { NotFoundException } from '@nestjs/common';
+import { ErrorEnum } from '../../common/enum/error.enum';
+import { RedisService } from 'src/redis/redis.service';
+import { UpdateManyDto } from 'src/common/base/base-dto/update-many.dto';
 
 export class TenantRepository extends Repository<TenantEntity> {
-
   constructor(
     @InjectRepository(TenantEntity)
     repo: Repository<TenantEntity>,
-    private readonly cacheService: RedisService
+    private readonly cacheService: RedisService,
   ) {
-    super(repo.target, repo.manager, repo.queryRunner)
+    super(repo.target, repo.manager, repo.queryRunner);
   }
 
   async store(body: TenantCreateDto) {
@@ -30,15 +28,22 @@ export class TenantRepository extends Repository<TenantEntity> {
   async findAll(body: GetAllDto) {
     const { page = 0, size = 10, query = '', sort = 1, is_active } = body;
 
-    const qb = this.createQueryBuilder('tenant')
-      .where("tenant.is_deleted = :is_deleted", { is_deleted: false });
+    const qb = this.createQueryBuilder('tenant').where(
+      'tenant.is_deleted = :is_deleted',
+      { is_deleted: false },
+    );
 
     if (query) {
-      BaseSearch({ alias: "tenant", qb, fields: ['name', 'code'], keyword: query });
+      BaseSearch({
+        alias: 'tenant',
+        qb,
+        fields: ['name', 'code'],
+        keyword: query,
+      });
     }
 
     if (is_active !== null && is_active !== undefined) {
-      qb.andWhere("tenant.is_active = :is_active", { is_active });
+      qb.andWhere('tenant.is_active = :is_active', { is_active });
     }
 
     const total = await qb.getCount();
@@ -47,7 +52,7 @@ export class TenantRepository extends Repository<TenantEntity> {
       qb.limit(size).offset(page * size);
     }
 
-    qb.orderBy("tenant.created_at", sort === '1' ? 'DESC' : 'ASC');
+    qb.orderBy('tenant.created_at', sort === '1' ? 'DESC' : 'ASC');
 
     const data = await qb.getMany();
 
@@ -79,13 +84,17 @@ export class TenantRepository extends Repository<TenantEntity> {
     Object.assign(tenant, body);
     await this.save(tenant);
 
-    await this.cacheService.set(`identity:tenant:${id}`, {
-      id,
-      name: tenant.name,
-      code: tenant.code,
-      avatar: tenant.avatar,
-      is_active: tenant.is_active,
-    }, 300);
+    await this.cacheService.set(
+      `identity:tenant:${id}`,
+      {
+        id,
+        name: tenant.name,
+        code: tenant.code,
+        avatar: tenant.avatar,
+        is_active: tenant.is_active,
+      },
+      300,
+    );
 
     return { id };
   }
@@ -94,7 +103,7 @@ export class TenantRepository extends Repository<TenantEntity> {
     const { ids } = body;
 
     await this.update({ id: In(ids) }, { is_deleted: true });
-    await this.cacheService.del(ids.map(id => `identity:tenant:${id}`));
+    await this.cacheService.del(ids.map((id) => `identity:tenant:${id}`));
 
     return { ids };
   }
@@ -103,7 +112,7 @@ export class TenantRepository extends Repository<TenantEntity> {
     const { ids } = body;
 
     await this.update({ id: In(ids) }, { is_active: false });
-    await this.cacheService.del(ids.map(id => `identity:tenant:${id}`));
+    await this.cacheService.del(ids.map((id) => `identity:tenant:${id}`));
 
     return { ids };
   }
@@ -112,7 +121,7 @@ export class TenantRepository extends Repository<TenantEntity> {
     const { ids } = body;
 
     await this.update({ id: In(ids) }, { is_active: true });
-    await this.cacheService.del(ids.map(id => `identity:tenant:${id}`));
+    await this.cacheService.del(ids.map((id) => `identity:tenant:${id}`));
 
     return { ids };
   }

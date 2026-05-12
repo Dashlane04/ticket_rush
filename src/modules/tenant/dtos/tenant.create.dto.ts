@@ -1,17 +1,18 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsBoolean, IsOptional, IsString } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
 
 export class TenantCreateDto {
-
-  @ApiProperty({ example: "Live Nation Vietnam" })
+  @ApiProperty({ example: 'Live Nation Vietnam' })
   @IsString()
   name: string;
 
-  @ApiProperty({ example: "LNV" })
+  @ApiProperty({ example: 'LNV' })
   @IsString()
   code: string;
 
-  @ApiPropertyOptional({ example: "Đơn vị tổ chức sự kiện âm nhạc hàng đầu Việt Nam" })
+  @ApiPropertyOptional({
+    example: 'Đơn vị tổ chức sự kiện âm nhạc hàng đầu Việt Nam',
+  })
   @IsString()
   @IsOptional()
   description?: string;

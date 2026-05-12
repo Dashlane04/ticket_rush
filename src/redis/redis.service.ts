@@ -1,14 +1,18 @@
-import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
-import { ConfigType } from "@nestjs/config";
-import Redis from "ioredis";
-import redisConfig from "src/configs/redis.config";
+import {
+  Inject,
+  Injectable,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
+import { ConfigType } from '@nestjs/config';
+import Redis from 'ioredis';
+import redisConfig from 'src/configs/redis.config';
 
 type RedisConfig = ConfigType<typeof redisConfig>;
 
 @Injectable()
-
 export class RedisService implements OnModuleInit, OnModuleDestroy {
-  private client: Redis
+  private client: Redis;
 
   constructor(
     @Inject(redisConfig.KEY)
@@ -24,25 +28,25 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleInit() {
-    this.client.on("connect", () => console.log("redis connected"))
-    this.client.on("error", (err) => console.log("redis error", err))
-    this.client.on("reconnecting", () => console.log("redis reconnecting"))
+    this.client.on('connect', () => console.log('redis connected'));
+    this.client.on('error', (err) => console.log('redis error', err));
+    this.client.on('reconnecting', () => console.log('redis reconnecting'));
   }
 
   onModuleDestroy() {
-    this.client.quit()
+    this.client.quit();
   }
 
   async get(key: string) {
     const data = await this.client.get(key);
-    return data ? JSON.parse(data) : null
+    return data ? JSON.parse(data) : null;
   }
 
   async set(key: string, value: any, ttl?: number) {
     if (ttl) {
-      await this.client.set(key, JSON.stringify(value), "EX", ttl)
+      await this.client.set(key, JSON.stringify(value), 'EX', ttl);
     } else {
-      await this.client.set(key, JSON.stringify(value))
+      await this.client.set(key, JSON.stringify(value));
     }
   }
 
@@ -50,5 +54,4 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     const keys = Array.isArray(key) ? key : [key];
     await this.client.del(...keys);
   }
-
 }

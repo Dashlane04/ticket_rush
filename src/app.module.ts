@@ -6,22 +6,23 @@ import { ConfigModule } from '@nestjs/config';
 import redisConfig from './configs/redis.config';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { RoleModule } from './modules/role/role.module';
-import { validate } from "./configs/env.validate"
+import { AuthModule } from './modules/auth/auth.module';
+import { validate } from './configs/env.validate';
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       load: [redisConfig],
-      validate
-    })
-    ,
+      validate,
+    }),
     DatabaseModule,
     TenantModule,
     RoleModule,
     UserModule,
     RedisModule,
+    AuthModule,
   ],
   controllers: [],
   providers: [],
 })
-export class AppModule { }
+export class AppModule {}
