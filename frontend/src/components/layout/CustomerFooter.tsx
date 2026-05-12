@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function CustomerFooter() {
   return (
     <footer className="w-full bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 pt-16 pb-8 mt-20">
@@ -14,17 +16,17 @@ export default function CustomerFooter() {
           <div>
             <h4 className="font-bold text-slate-900 dark:text-white mb-4">Khám phá</h4>
             <ul className="space-y-3 text-sm text-slate-500 dark:text-slate-400">
-              <li><a href="#" className="hover:text-rose-600 transition-colors cursor-pointer">Sự kiện nổi bật</a></li>
-              <li><a href="#" className="hover:text-rose-600 transition-colors cursor-pointer">Sơ đồ ghế</a></li>
-              <li><a href="#" className="hover:text-rose-600 transition-colors cursor-pointer">Hướng dẫn mua vé</a></li>
+              <li><Link href="/" className="hover:text-rose-600 transition-colors">Sự kiện nổi bật</Link></li>
+              <li><Link href="/events/4" className="hover:text-rose-600 transition-colors">Sơ đồ ghế (theo sự kiện)</Link></li>
+              <li><Link href="/events" className="hover:text-rose-600 transition-colors">Hướng dẫn mua vé</Link></li>
             </ul>
           </div>
           <div>
             <h4 className="font-bold text-slate-900 dark:text-white mb-4">Chính sách</h4>
             <ul className="space-y-3 text-sm text-slate-500 dark:text-slate-400">
-              <li><a href="#" className="hover:text-rose-600 transition-colors cursor-pointer">Điều khoản dịch vụ</a></li>
-              <li><a href="#" className="hover:text-rose-600 transition-colors cursor-pointer">Chính sách bảo mật</a></li>
-              <li><a href="#" className="hover:text-rose-600 transition-colors cursor-pointer">Quy định hoàn vé</a></li>
+              <li><Link href="/events" className="hover:text-rose-600 transition-colors">Điều khoản dịch vụ</Link></li>
+              <li><Link href="/login" className="hover:text-rose-600 transition-colors">Chính sách bảo mật</Link></li>
+              <li><Link href="/my-tickets" className="hover:text-rose-600 transition-colors">Quy định hoàn vé</Link></li>
             </ul>
           </div>
         </div>

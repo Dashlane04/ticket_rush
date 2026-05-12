@@ -3,7 +3,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 const CATEGORIES = ['Tất cả', 'Âm nhạc', 'Thể thao', 'Sân khấu & Nghệ thuật', 'Hội thảo / Talkshow'];
 
-export default function EventFilter() {
+type EventFilterProps = {
+  /** Base pathname for category query updates (e.g. "/" or "/events") */
+  basePath?: string;
+};
+
+export default function EventFilter({ basePath = '/' }: EventFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeCategory = searchParams.get('category') || 'Tất cả';
@@ -12,7 +17,8 @@ export default function EventFilter() {
     // Đẩy Query Params lên URL, Next.js sẽ kích hoạt Server fetch logic một cách tối ưu
     const params = new URLSearchParams(searchParams.toString());
     params.set('category', category);
-    router.push(`/?${params.toString()}`, { scroll: false });
+    const path = basePath.endsWith('/') && basePath !== '/' ? basePath.slice(0, -1) : basePath;
+    router.push(`${path === '/' ? '/' : path}?${params.toString()}`, { scroll: false });
   };
 
   return (

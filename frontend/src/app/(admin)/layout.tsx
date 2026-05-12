@@ -1,11 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { LayoutDashboard, CalendarDays, BarChart3, Settings, LogOut, Ticket } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { LayoutDashboard, CalendarDays, BarChart3, Settings, Ticket } from "lucide-react";
+import { AdminLogoutButton } from "@/components/admin/AdminLogoutButton";
+import { useAuthStore } from "@/stores/auth-store";
+import { userHasAdminRole } from "@/lib/auth-api";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const hydrated = useAuthStore((s) => s.hydrated);
+  const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (!userHasAdminRole(user)) {
+      router.replace("/");
+    }
+  }, [hydrated, user, router]);
 
   const navigation = [
     { name: "Tổng quan", href: "/admin", icon: LayoutDashboard },
@@ -13,6 +31,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: "Thống kê", href: "/admin/analytics", icon: BarChart3 },
     { name: "Cài đặt", href: "/admin/settings", icon: Settings },
   ];
+
+  if (!hydrated || !user || !userHasAdminRole(user)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-600 text-sm">
+        Đang kiểm tra quyền truy cập…
+      </div>
+    );
+  }
+
+  const emailInitial = user?.email?.charAt(0).toUpperCase() ?? "A";
 
   return (
     // Admin uses light mode base
@@ -48,10 +76,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
 
         <div className="p-4 border-t border-slate-200">
-          <button className="flex items-center w-full px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors">
-            <LogOut className="mr-3 h-5 w-5 text-slate-400" />
-            Đăng xuất
-          </button>
+          <AdminLogoutButton />
         </div>
       </aside>
 
@@ -65,11 +90,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-rose-100 flex items-center justify-center text-rose-700 font-bold">
-                AD
+                {emailInitial}
               </div>
               <div className="hidden md:block text-sm">
-                <p className="font-medium text-slate-700">Admin User</p>
-                <p className="text-slate-500 text-xs">admin@ticketrush.com</p>
+                <p className="font-medium text-slate-700">Quản trị</p>
+                <p className="text-slate-500 text-xs truncate max-w-[200px]" title={user?.email}>
+                  {user?.email}
+                </p>
               </div>
             </div>
           </div>

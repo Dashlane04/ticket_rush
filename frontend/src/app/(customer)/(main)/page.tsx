@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import HeroBanner from '@/components/home/HeroBanner';
 import FeaturedEvents from '@/components/home/FeaturedEvents';
 import EventFilter from '@/components/home/EventFilter';
@@ -52,9 +53,12 @@ export default async function HomePage(props: { searchParams?: Promise<{ categor
       <FeaturedEvents events={eventsData} />
       
       <div className="flex justify-center mt-8">
-         <button className="px-6 py-2.5 rounded-full border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-rose-600 hover:border-rose-400 font-medium transition-colors cursor-pointer bg-white dark:bg-slate-900 shadow-sm">
+         <Link
+           href="/events"
+           className="inline-flex px-6 py-2.5 rounded-full border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-rose-600 hover:border-rose-400 font-medium transition-colors cursor-pointer bg-white dark:bg-slate-900 shadow-sm"
+         >
             Tải thêm sự kiện
-         </button>
+         </Link>
       </div>
     </div>
   );

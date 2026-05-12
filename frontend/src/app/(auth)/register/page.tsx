@@ -4,7 +4,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Lock, Mail, User, ArrowRight } from "lucide-react";
+import { registerRequest } from "@/lib/auth-api";
+import { useAuthStore } from "@/stores/auth-store";
 
 // Define the validation schema using Zod
 const registerSchema = z.object({
@@ -20,10 +23,13 @@ const registerSchema = z.object({
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
+  const router = useRouter();
+  const setUser = useAuthStore((s) => s.setUser);
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
+    setError,
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -35,9 +41,19 @@ export default function RegisterPage() {
   });
 
   const onSubmit = async (data: RegisterFormValues) => {
-    console.log("Form Data:", data);
-    // TODO: Connect to BFF API /api/auth/register
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const me = await registerRequest({
+        name: data.fullName.trim(),
+        email: data.email.trim(),
+        password: data.password,
+        confirmPassword: data.confirmPassword,
+      });
+      setUser(me);
+      router.push("/");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Đăng ký thất bại";
+      setError("root", { message });
+    }
   };
 
   return (
@@ -57,6 +73,10 @@ export default function RegisterPage() {
               Trở thành hội viên để săn vé nhanh nhất
             </p>
           </div>
+
+          {errors.root && (
+            <p className="text-sm text-red-500 text-center">{errors.root.message}</p>
+          )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>

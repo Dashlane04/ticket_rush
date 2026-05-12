@@ -6,6 +6,8 @@ import * as z from "zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Lock, Mail, ArrowRight } from "lucide-react";
+import { loginRequest, userHasAdminRole } from "@/lib/auth-api";
+import { useAuthStore } from "@/stores/auth-store";
 
 // Define the validation schema using Zod
 const loginSchema = z.object({
@@ -17,6 +19,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();
+  const setUser = useAuthStore((s) => s.setUser);
   const {
     register,
     handleSubmit,
@@ -31,15 +34,17 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: LoginFormValues) => {
-    // Mock login logic
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    if (data.email === "admin@ticketrush.com" && data.password === "admin123") {
-      router.push("/admin");
-    } else if (data.email === "user@example.com" && data.password === "user1234") {
-      router.push("/");
-    } else {
-      setError("password", { message: "Email hoặc mật khẩu không đúng (Thử admin@ticketrush.com / admin123)" });
+    try {
+      const me = await loginRequest(data.email, data.password);
+      setUser(me);
+      if (userHasAdminRole(me)) {
+        router.push("/admin");
+      } else {
+        router.push("/");
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Đăng nhập thất bại";
+      setError("password", { message });
     }
   };
 
@@ -107,7 +112,7 @@ export default function LoginPage() {
                 <input type="checkbox" className="mr-2 rounded border-bg-border text-brand-primary focus:ring-brand-primary bg-bg-base" />
                 Ghi nhớ đăng nhập
               </label>
-              <Link href="#" className="text-brand-primary font-medium hover:text-brand-primary-hover transition-colors">
+              <Link href="/forgot-password" className="text-brand-primary font-medium hover:text-brand-primary-hover transition-colors">
                 Quên mật khẩu?
               </Link>
             </div>
