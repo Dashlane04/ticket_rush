@@ -39,8 +39,15 @@
         .seat.empty { display: none; } 
 
         /* Hardcoded Statuses */
-        .seat.held, .seat.sold { background: #e2e8f0 !important; color: #94a3b8 !important; border: 1px solid #cbd5e1 !important; cursor: not-allowed; opacity: 0.6; pointer-events: none;}
-        
+        .seat.held, .seat.sold { 
+            background: #f1f5f9 !important; 
+            color: #94a3b8 !important; 
+            border: 1px dashed #cbd5e1 !important; 
+            cursor: not-allowed; 
+            pointer-events: none;
+            text-decoration: line-through; /* Adds a nice crossed-out look */
+        }
+
         /* User Selection Override */
         .seat.user-selected { transform: scale(1.1); z-index: 5; background: rgba(25, 118, 210, 0.1) !important; color: #1976d2 !important; border: 2px solid #1976d2 !important; box-shadow: 0 4px 12px rgba(25, 118, 210, 0.2);}
 
@@ -175,7 +182,7 @@
     <script>
         // --- CONFIGURATION ---
         const API_BASE = 'http://localhost:3000'; 
-        const SHOWTIME_ID = '7c0f15e4-b0a9-4035-a2da-e43295935c2e'; // REPLACE THIS!
+        const SHOWTIME_ID = 'aa46c600-4df0-444e-aa9f-f1a6abd20986'; // REPLACE THIS!
 
         // --- STATE ---
         let seatConfig = {}; 
@@ -183,7 +190,7 @@
         let selectedSeats = new Map(); 
         let ROWS = 0;
         let COLS = 0;
-        let locksAcquired = false; // NEW: Tracks if we currently own the backend locks
+        let locallyLockedSeats = new Set(); // NEW: Remembers exactly which seats WE have locked in Redis
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (SHOWTIME_ID === 'YOUR_TEST_SHOWTIME_ID_HERE') return alert("Replace SHOWTIME_ID!");
@@ -313,19 +320,19 @@
                 }
 
                 const isLocallySelected = selectedSeats.has(seatData.seatNumber);
+                const isSecuredByMe = locallyLockedSeats.has(seatData.seatNumber);
 
-                // If the seat is held/sold, AND we haven't locked it ourselves via "Proceed"
-                if (seatData.status === 'sold' || (seatData.status === 'held' && !locksAcquired)) {
+                // If the seat is held/sold, AND we haven't locked it ourselves
+                if (seatData.status === 'sold' || (seatData.status === 'held' && !isSecuredByMe)) {
                     
-                    // Auto-evict from cart if someone else grabbed it while we were deciding
                     if (isLocallySelected) {
                         selectedSeats.delete(seatData.seatNumber);
                         updateCart();
-                        alert(`A fan just beat you to seat ${seatData.seatNumber}! It has been removed from your cart.`);
+                        alert(`A fan just beat you to seat ${seatData.seatNumber}!`);
                     }
                     
                     seatEl.className = 'seat sold';
-                    seatEl.textContent = ''; 
+                    seatEl.textContent = seatData.seatNumber.replace(/^[A-Z]+/, ''); 
                 } else {
                     seatEl.className = `seat available ${isLocallySelected ? 'user-selected' : ''}`;
                     seatEl.textContent = seatData.seatNumber.replace(/^[A-Z]+/, '');
@@ -344,27 +351,41 @@
             } catch (err) {}
         }
 
-        // --- INTERACTION (Now 100% Local & Instant) ---
+        // --- INTERACTION ---
         function toggleSeatSelection(element, seatData) {
-            // Cannot change seats if we've already proceeded to checkout
-            if (locksAcquired) return; 
-
             const seatId = seatData.seatNumber;
             const typeConfig = seatConfig[seatData.type];
             if (!typeConfig) return;
 
             if (selectedSeats.has(seatId)) {
-                // Deselect locally
+                // DESELECT LOCALLY
+                if (locallyLockedSeats.has(seatId)) {
+                    // If we previously secured it on the backend, release it so others can buy it!
+                    fetch(`${API_BASE}/tickets/release`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ showtimeId: SHOWTIME_ID, seatId: seatId })
+                    }).catch(e => console.warn("Failed to release lock"));
+                    
+                    locallyLockedSeats.delete(seatId);
+                }
+                
                 selectedSeats.delete(seatId);
                 element.classList.remove('user-selected');
             } else {
-                // Select locally
+                // SELECT LOCALLY
+                if (selectedSeats.size >= 8) {
+                    alert("You can only select up to 8 tickets per transaction.");
+                    return; 
+                }
                 selectedSeats.set(seatId, { type: seatData.type, price: typeConfig.price });
                 element.classList.add('user-selected');
             }
             updateCart();
         }
 
+        
+        
         // --- CART UI ---
         function updateCart() {
             const listEl = document.getElementById('cart-list');
@@ -405,38 +426,32 @@
 
             const btn = document.getElementById('btn-checkout');
             const originalHtml = btn.innerHTML;
-            
-            // Put UI in loading state
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Securing Seats...';
             btn.disabled = true;
 
             try {
-                // Fire off lock requests for every seat in the cart simultaneously
-                const lockPromises = Array.from(selectedSeats.keys()).map(seatId => 
-                    fetch(`${API_BASE}/tickets/reserve`, {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer YOUR_TEST_TOKEN' 
-                        },
-                        body: JSON.stringify({ showtimeId: SHOWTIME_ID, seatId: seatId })
-                    })
-                );
+                // ONLY attempt to lock seats we haven't already secured
+                const seatsToLock = Array.from(selectedSeats.keys()).filter(id => !locallyLockedSeats.has(id));
 
-                // Wait for all responses
-                const responses = await Promise.all(lockPromises);
-                
-                // Check if any locks failed (e.g. someone snatched it 1 second ago)
-                const failed = responses.filter(r => !r.ok);
+                if (seatsToLock.length > 0) {
+                    const lockPromises = seatsToLock.map(seatId => 
+                        fetch(`${API_BASE}/tickets/reserve`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ showtimeId: SHOWTIME_ID, seatId: seatId })
+                        })
+                    );
 
-                if (failed.length > 0) {
-                    // Release the ones that DID succeed so we don't accidentally hoard them
-                    await releaseAllSelected();
-                    throw new Error("One or more of your selected seats were just taken by another user. Please re-select.");
+                    const responses = await Promise.all(lockPromises);
+                    const failed = responses.filter(r => !r.ok);
+
+                    if (failed.length > 0) {
+                        throw new Error("One or more of your selected seats were just taken. Please re-select.");
+                    }
+
+                    // Add newly locked seats to our memory bank
+                    seatsToLock.forEach(id => locallyLockedSeats.add(id));
                 }
-
-                // Success! We own the locks.
-                locksAcquired = true;
                 
                 // Move to Confirmation View
                 document.getElementById('booking-view').style.display = 'none';
@@ -445,7 +460,6 @@
 
             } catch (err) {
                 alert(err.message);
-                // Trigger an immediate poll so the map paints the taken seats grey instantly
                 pollSeatStatus(); 
             } finally {
                 btn.innerHTML = originalHtml;
@@ -453,15 +467,13 @@
             }
         }
 
-        async function goBackToBooking() {
-            // User changed their mind. Hide confirmation, show map.
+        function goBackToBooking() {
             document.getElementById('confirmation-view').style.display = 'none';
             document.getElementById('booking-view').style.display = 'block';
             
-            // Release the backend locks
-            await releaseAllSelected();
-            locksAcquired = false;
-            pollSeatStatus(); // Refresh map
+            // We intentionally DO NOT release the backend locks here. 
+            // The user still wants them, they just went back to look at the map!
+            pollSeatStatus(); 
         }
 
         async function releaseAllSelected() {
@@ -478,27 +490,56 @@
             await Promise.all(releasePromises);
         }
 
-        function finalizePurchase() {
-            // Show loading screen over everything
+        async function finalizePurchase() {
+            // 1. Show loading screen over everything
             const loader = document.getElementById('loader');
             document.getElementById('loader-text').textContent = "Processing Payment...";
             loader.classList.remove('hidden');
 
-            // Simulate API payment delay
-            setTimeout(() => {
+            try {
+                // 2. Gather the exact seats we are buying
+                const seatIdsToPurchase = Array.from(selectedSeats.keys());
+
+                // 3. Tell the backend to mark them as SOLD and clear the Redis locks
+                const res = await fetch(`${API_BASE}/tickets/purchase`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        // Include your Authorization header if your route is protected!
+                        'Authorization': 'Bearer YOUR_TEST_TOKEN' 
+                    },
+                    body: JSON.stringify({ 
+                        showtimeId: SHOWTIME_ID, 
+                        seatIds: seatIdsToPurchase 
+                    })
+                });
+
+                if (!res.ok) throw new Error("Payment failed or seats could not be verified.");
+
+                // 4. Hide loader and transition to Success Screen
                 loader.classList.add('hidden');
-                
                 document.getElementById('payment-actions').style.display = 'none';
                 document.getElementById('success-details').style.display = 'block';
 
+                // Generate fake transaction ID and Real QR Code
                 const txnId = "TXN-" + Math.random().toString(36).substr(2, 9).toUpperCase();
                 document.getElementById('txn-id').textContent = txnId;
                 
                 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=TicketRush:${txnId}`;
                 document.getElementById('qr-code-img').src = qrUrl;
 
+                // 5. CRITICAL: Clear our local cart memory so we don't accidentally release them
                 selectedSeats.clear();
-            }, 2000);
+                locallyLockedSeats.clear();
+                locksAcquired = false;
+
+                // Trigger a final poll so the background map instantly paints them Grey (Sold)
+                pollSeatStatus(); 
+
+            } catch (err) {
+                loader.classList.add('hidden');
+                alert(err.message || "An error occurred during checkout.");
+            }
         }
     </script>
 </body>

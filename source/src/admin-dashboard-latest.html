@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Rush - Admin Mission Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #f3f4f6;
+            --surface: #ffffff;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --sidebar-bg: #0f172a;
+            --sidebar-hover: #1e293b;
+            --sidebar-active: #38bdf8;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: var(--bg-color); 
+            margin: 0; padding: 0; 
+            color: var(--text-main); 
+            display: flex; height: 100vh; overflow: hidden; 
+            font-size: 14px;
+        }
+        
+        /* --- SIDEBAR --- */
+        .sidebar { width: 240px; background: var(--sidebar-bg); color: #f8fafc; display: flex; flex-direction: column; padding: 24px 0; flex-shrink: 0; box-shadow: 2px 0 10px rgba(0,0,0,0.1); z-index: 10;}
+        .brand { font-size: 18px; font-weight: 700; padding: 0 24px 24px; border-bottom: 1px solid #1e293b; display: flex; align-items: center; gap: 10px; color: var(--surface); letter-spacing: -0.5px;}
+        .brand i { color: var(--sidebar-active); font-size: 20px;}
+        .nav-links { padding-top: 16px; display: flex; flex-direction: column; gap: 4px; }
+        .nav-link { display: flex; align-items: center; gap: 12px; padding: 10px 24px; color: #94a3b8; text-decoration: none; transition: 0.2s; font-weight: 500; font-size: 13px;}
+        .nav-link:hover { background: var(--sidebar-hover); color: var(--surface); }
+        .nav-link.active { background: var(--sidebar-hover); color: var(--sidebar-active); border-right: 3px solid var(--sidebar-active); }
+
+        /* --- MAIN CONTENT --- */
+        .main-content { flex: 1; padding: 24px 32px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px;}
+        .header-actions { display: flex; justify-content: space-between; align-items: flex-end; }
+        .header-actions h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.5px; color: var(--text-main);}
+        
+        /* --- STATS BOARD --- */
+        .stats-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+        .stat-card { background: var(--surface); padding: 16px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03); border: 1px solid var(--border); display: flex; align-items: center; gap: 16px; transition: transform 0.2s;}
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .stat-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 20px; }
+        .stat-icon.blue { background: #eff6ff; color: #3b82f6; }
+        .stat-icon.green { background: #f0fdf4; color: #22c55e; }
+        .stat-icon.purple { background: #faf5ff; color: #a855f7; }
+        .stat-icon.orange { background: #fff7ed; color: #f97316; }
+        .stat-details h3 { margin: 0; font-size: 12px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-details p { margin: 4px 0 0; font-size: 22px; font-weight: 700; color: var(--text-main); line-height: 1;}
+
+        /* --- CONTROLS & BUTTONS --- */
+        .controls { display: flex; gap: 12px; background: var(--surface); padding: 12px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid var(--border); }
+        .search-box { flex: 1; position: relative; }
+        .search-box i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 13px;}
+        .controls input, .controls select { width: 100%; padding: 10px 14px 10px 36px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 13px; outline: none; transition: 0.2s; background: #f9fafb;}
+        .controls input:focus, .controls select:focus { border-color: var(--primary); background: var(--surface); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+        .filter-select { padding-left: 14px !important; width: auto !important; min-width: 150px; background: #f9fafb; cursor: pointer;}
+
+        button { font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 500; transition: all 0.2s; outline: none; }
+        .btn-primary { background: var(--primary); color: white; border: none; padding: 10px 18px; border-radius: 8px; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);}
+        .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);}
+        .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; transform: none;}
+        
+        .btn-secondary { background: var(--surface); color: var(--text-main); border: 1px solid var(--border); padding: 10px 18px; border-radius: 8px; }
+        .btn-secondary:hover { background: #f9fafb; border-color: #d1d5db; }
+
+        .btn-warning { background: #f59e0b; color: white; border: none; padding: 8px 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);}
+        .btn-warning:hover { background: #d97706; }
+
+        /* Icon-Only Actions */
+        .action-btn { width: 32px; height: 32px; border-radius: 8px; border: none; background: transparent; color: var(--text-muted); font-size: 14px; }
+        .action-btn:hover { color: var(--surface); }
+        .action-btn.radar:hover { background: #8b5cf6; } 
+        .action-btn.edit:hover { background: #3b82f6; }  
+        .action-btn.delete:hover { background: #ef4444; }
+
+        /* --- DATA TABLE --- */
+        .table-container { background: var(--surface); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid var(--border); overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { background: #f8fafc; font-weight: 600; color: var(--text-muted); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; padding: 12px 20px; border-bottom: 1px solid var(--border); position: sticky; top: 0;}
+        td { padding: 14px 20px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; color: var(--text-main); }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background: #f8fafc; }
+        
+        .movie-title { font-weight: 600; color: var(--text-main); font-size: 14px; margin-bottom: 4px;}
+        /* UPDATE: Full ID styling */
+        .movie-id { font-size: 11px; color: #94a3b8; font-family: monospace; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; display: inline-block; word-break: break-all; max-width: 250px;}
+        
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; display: inline-block;}
+        .status-upcoming { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;}
+        .status-past { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0;}
+
+        /* --- MODALS --- */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1000; opacity: 1; transition: 0.2s ease-out;}
+        .modal-overlay.hidden { opacity: 0; pointer-events: none; }
+        .modal-box { background: var(--surface); padding: 32px; border-radius: 16px; width: 480px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); transform: scale(1); transition: 0.2s ease-out;}
+        .modal-overlay.hidden .modal-box { transform: scale(0.95); }
+        .modal-box.large { width: auto; min-width: 600px; max-width: 90vw; }
+        
+        .modal-box h2 { margin: 0 0 24px 0; font-size: 20px; font-weight: 600; color: var(--text-main); }
+        
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;}
+        .form-group input:not([type="file"]), .form-group select, .form-group textarea { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; font-family: inherit; font-size: 14px; outline: none; transition: 0.2s; background: #f9fafb;}
+        .form-group input:not([type="file"]):focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary); background: var(--surface); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+        
+        .modal-footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px; padding-top: 16px; border-top: 1px solid #f1f5f9;}
+
+        /* --- LIVE MONITOR GRID --- */
+        .monitor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #f1f5f9; }
+        .monitor-header-title { display: flex; align-items: center; gap: 10px; }
+        .pulse-indicator { width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
+        
+        .grid-wrapper { display: flex; flex-direction: column; align-items: center; overflow-x: auto; padding: 24px; background: #f8fafc; border-radius: 12px; border: 1px solid var(--border);}
+        .grid { display: grid; gap: 4px; user-select: none; }
+        .cell-slot { width: 28px; height: 28px; position: relative;}
+        
+        .seat { width: 100%; height: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; box-sizing: border-box; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;}
+        .seat:hover { transform: scale(1.15); z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.15);}
+        
+        .seat.empty { display: none; }
+        .seat.available { background: var(--surface); border: 2px solid var(--border); color: var(--text-main); }
+        .seat.held { background: #fff7ed; border: 2px solid #f97316; color: #c2410c; }
+        .seat.sold { background: #f1f5f9 !important; color: #94a3b8 !important; border: 1px dashed #cbd5e1 !important; text-decoration: line-through; pointer-events: none; }
+        .seat.broken { background: #ef4444 !important; color: white !important; border: none !important; }
+
+        .monitor-legend { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin-top: 20px; font-size: 12px; font-weight: 500; color: var(--text-muted);}
+        .monitor-legend-item { display: flex; align-items: center; gap: 8px; }
+        .monitor-color { width: 14px; height: 14px; border-radius: 4px; }
+    </style>
+    <style id="dynamic-radar-styles"></style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="brand"><i class="fa-solid fa-ticket"></i> Ticket Rush</div>
+        <div class="nav-links">
+            <a href="#" class="nav-link active"><i class="fa-solid fa-film"></i> Showtimes</a>
+            <a href="seat-admin-test.html" class="nav-link"><i class="fa-solid fa-map"></i> Seat Templates</a>
+            <a href="#" class="nav-link"><i class="fa-solid fa-users"></i> Users</a>
+        </div>
+    </div>
+
+    <div class="main-content">
+        
+        <div class="stats-board">
+            <div class="stat-card">
+                <div class="stat-icon blue"><i class="fa-solid fa-calendar-days"></i></div>
+                <div class="stat-details"><h3>Total Shows</h3><p id="stat-shows">0</p></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green"><i class="fa-solid fa-ticket-simple"></i></div>
+                <div class="stat-details"><h3>Tickets Sold</h3><p id="stat-sold">0</p></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple"><i class="fa-solid fa-chair"></i></div>
+                <div class="stat-details"><h3>Total Capacity</h3><p id="stat-capacity">0</p></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon orange"><i class="fa-solid fa-users-rays"></i></div>
+                <div class="stat-details"><h3>Live Users</h3><p id="stat-users">0</p></div>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <h2>Showtime Management</h2>
+            <div style="display: flex; gap: 12px;">
+                <button class="btn-secondary" onclick="openManageTemplatesModal()"><i class="fa-solid fa-map"></i> Manage Templates</button>
+                <button class="btn-primary" onclick="openCreateModal()"><i class="fa-solid fa-plus"></i> Schedule New Show</button>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="search-input" placeholder="Search by Movie Title..." onkeyup="filterTable()">
+            </div>
+            <select class="filter-select" id="filter-hall" onchange="filterTable()">
+                <option value="all">All Halls</option>
+            </select>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Movie Details</th>
+                        <th>Hall</th>
+                        <th>Start Time</th>
+                        <th>Occupancy</th>
+                        <th>Status</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="showtime-table-body">
+                    <tr><td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">Loading data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="manage-templates-modal" class="modal-overlay hidden">
+        <div class="modal-box large">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 style="margin: 0;">Seat Blueprints (Templates)</h2>
+                <button class="action-btn" onclick="closeModals()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="table-container" style="box-shadow: none; max-height: 400px; overflow-y: auto;">
+                <table style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Template Name</th>
+                            <th>Hall Assignment</th>
+                            <th style="text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="templates-table-body">
+                        <tr><td colspan="3" style="text-align: center; padding: 20px;">Loading templates...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="create-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h2>Schedule New Show</h2>
+            <div class="form-group">
+                <label>Movie Title</label><input type="text" id="movie-title" placeholder="Enter movie title...">
+            </div>
+            <div class="form-group">
+                <label>Movie Description</label>
+                <textarea id="movie-description" rows="3" placeholder="Brief summary..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Movie Banner / Poster</label>
+                <input type="file" id="movie-banner" accept="image/*">
+            </div>
+            <div style="display: flex; gap: 16px;">
+                <div class="form-group" style="flex: 2;">
+                    <label>Date & Time</label><input type="datetime-local" id="start-time">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Duration (m)</label><input type="number" id="duration" value="120">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Seat Blueprint (Template)</label>
+                <select id="template-select"><option value="">Loading...</option></select>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModals()">Cancel</button>
+                <button class="btn-primary" id="btn-save-show" onclick="executeCreateShowtime()">Create Show</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h2>Edit Showtime Details</h2>
+            <input type="hidden" id="edit-id">
+            <div class="form-group">
+                <label>Movie Title</label><input type="text" id="edit-title">
+            </div>
+            <div class="form-group">
+                <label>Movie Description</label>
+                <textarea id="edit-description" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Update Banner (Optional)</label>
+                <input type="file" id="edit-banner" accept="image/*">
+            </div>
+            <div class="form-group">
+                <label>Date & Time</label><input type="datetime-local" id="edit-start">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModals()">Cancel</button>
+                <button class="btn-primary" id="btn-update-show" onclick="executeEditShowtime()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="monitor-modal" class="modal-overlay hidden">
+        <div class="modal-box large">
+            <div class="monitor-header">
+                <div class="monitor-header-title">
+                    <span class="pulse-indicator"></span>
+                    <h2 style="margin: 0;">Live Radar</h2>
+                </div>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <span id="monitor-subtitle" style="color: var(--text-muted); font-size: 13px; font-weight: 500;">Fetching data...</span>
+                    <button class="action-btn" onclick="closeMonitor()" title="Close"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            
+            <div class="grid-wrapper">
+                <div id="monitor-grid" class="grid"></div>
+            </div>
+
+            <div class="monitor-legend" id="radar-legend"></div>
+        </div>
+    </div>
+
+    <div id="seat-override-modal" class="modal-overlay hidden" style="z-index: 1050;">
+        <div class="modal-box" style="width: 400px;">
+            <h2>Override Seat: <span id="override-seat-label" style="color: var(--primary);">--</span></h2>
+            <p style="color: var(--text-muted); font-size: 13px; margin-top: -16px; margin-bottom: 24px;">Current Status: <strong id="override-current-status" style="color: var(--text-main);">--</strong></p>
+            
+            <input type="hidden" id="override-showtime-id">
+            <input type="hidden" id="override-seat-id">
+
+            <div class="form-group">
+                <label>Force New Status</label>
+                <select id="override-new-status">
+                    <option value="available">Available (Release Lock)</option>
+                    <option value="sold">Sold (Manual Cash Sale)</option>
+                    <option value="unavailable">Unavailable (Emergency Block)</option>
+                </select>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeOverrideModal()">Cancel</button>
+                <button class="btn-warning" id="btn-submit-override" onclick="executeSeatOverride()">Apply Override</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        let allShowtimes = [];
+        let monitorInterval = null;
+
+        const toBase64 = file => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+
+        document.addEventListener('DOMContentLoaded', fetchShowtimes);
+
+        // --- READ & STATS ---
+        async function fetchShowtimes() {
+            try {
+                const res = await fetch(`${API_BASE}/admin/showtimes`);
+                if (!res.ok) throw new Error("Failed to fetch");
+                
+                allShowtimes = await res.json();
+                populateHallFilter();
+                renderTable(allShowtimes);
+                updateStatsBoard(allShowtimes);
+            } catch (err) {
+                console.error(err);
+                document.getElementById('showtime-table-body').innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 40px; color: #ef4444;">Failed to connect to backend API.</td></tr>`;
+            }
+        }
+
+        function updateStatsBoard(data) {
+            let totalCapacity = 0;
+            let totalAvailable = 0;
+
+            data.forEach(show => {
+                totalCapacity += show.totalSeats || 0;
+                totalAvailable += show.availableSeats || 0;
+            });
+
+            const ticketsSold = totalCapacity - totalAvailable;
+
+            document.getElementById('stat-shows').textContent = data.length;
+            document.getElementById('stat-capacity').textContent = totalCapacity.toLocaleString();
+            document.getElementById('stat-sold').textContent = ticketsSold.toLocaleString();
+            
+            setInterval(() => {
+                const base = Math.floor(data.length * 2.5);
+                const jitter = Math.floor(Math.random() * 5) - 2;
+                document.getElementById('stat-users').textContent = Math.max(0, base + jitter);
+            }, 3000);
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('showtime-table-body');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 40px; color: #94a3b8;">No showtimes found. Click "Schedule New Show" to begin.</td></tr>`;
+                return;
+            }
+
+            const now = new Date();
+
+            data.forEach(show => {
+                const showDate = new Date(show.startTime);
+                const isUpcoming = showDate > now;
+                const statusHtml = isUpcoming 
+                    ? `<span class="status-badge status-upcoming">Upcoming</span>` 
+                    : `<span class="status-badge status-past">Past</span>`;
+                
+                const soldSeats = show.totalSeats - show.availableSeats;
+                const percentSold = show.totalSeats > 0 ? Math.round((soldSeats / show.totalSeats) * 100) : 0;
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <div class="movie-title">${show.movieTitle}</div>
+                            <div class="movie-id" title="${show.id}">ID: ${show.id}</div>
+                        </td>
+                        <td style="font-weight: 500;">${show.hallName}</td>
+                        <td>
+                            <div style="font-weight: 500;">${showDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric'})}</div>
+                            <div style="font-size: 12px; color: #64748b;">${showDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        </td>
+                        <td style="min-width: 140px;">
+                            <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px; display: flex; justify-content: space-between;">
+                                <span>${soldSeats} <span style="color: #94a3b8; font-weight: normal;">/ ${show.totalSeats}</span></span>
+                                <span style="color: var(--primary);">${percentSold}%</span>
+                            </div>
+                            <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${percentSold}%; background: var(--primary); height: 100%; border-radius: 4px; transition: width 0.5s ease;"></div>
+                            </div>
+                        </td>
+                        <td>${statusHtml}</td>
+                        <td style="text-align: right;">
+                            <div style="display: flex; gap: 4px; justify-content: flex-end;">
+                                <button class="action-btn radar" onclick="openLiveMonitor('${show.id}', '${show.movieTitle.replace(/'/g, "\\'")}')" title="Live Radar"><i class="fa-solid fa-satellite-dish"></i></button>
+                                <button class="action-btn edit" onclick="openEditModal('${show.id}')" title="Edit Details"><i class="fa-solid fa-pen"></i></button>
+                                <button class="action-btn delete" onclick="deleteShowtime('${show.id}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // --- FILTERS ---
+        function populateHallFilter() {
+            const select = document.getElementById('filter-hall');
+            const uniqueHalls = [...new Set(allShowtimes.map(s => s.hallName))];
+            
+            select.innerHTML = '<option value="all">All Halls</option>';
+            uniqueHalls.forEach(hall => {
+                if (hall) select.innerHTML += `<option value="${hall}">${hall}</option>`;
+            });
+        }
+
+        function filterTable() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const hallFilter = document.getElementById('filter-hall').value;
+            const filtered = allShowtimes.filter(show => 
+                show.movieTitle.toLowerCase().includes(searchTerm) && 
+                (hallFilter === 'all' || show.hallName === hallFilter)
+            );
+            renderTable(filtered);
+        }
+
+        function closeModals() {
+            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.add('hidden'));
+        }
+
+        // --- MANAGE TEMPLATES ---
+        async function openManageTemplatesModal() {
+            document.getElementById('manage-templates-modal').classList.remove('hidden');
+            const tbody = document.getElementById('templates-table-body');
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 20px;">Loading templates...</td></tr>`;
+            
+            try {
+                const res = await fetch(`${API_BASE}/admin/seat-templates`);
+                const templates = await res.json();
+                
+                if (templates.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 20px; color: #94a3b8;">No blueprints found.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = templates.map(t => `
+                    <tr>
+                        <td style="font-weight: 600;">${t.templateName}</td>
+                        <td>${t.hallName}</td>
+                        <td style="text-align: right;">
+                            <button class="action-btn delete" onclick="deleteTemplate('${t.templateId}')" title="Delete Blueprint"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #ef4444;">Failed to load templates.</td></tr>`;
+            }
+        }
+
+        async function deleteTemplate(templateId) {
+            if (!confirm("Are you sure? This deletes the blueprint completely!")) return;
+            try {
+                await fetch(`${API_BASE}/admin/seat-template/${templateId}`, { method: 'DELETE' });
+                // Refresh the modal view
+                openManageTemplatesModal(); 
+            } catch (err) {
+                alert("Failed to delete template.");
+            }
+        }
+
+
+        // --- CREATE ---
+        async function openCreateModal() {
+            document.getElementById('create-modal').classList.remove('hidden');
+            const select = document.getElementById('template-select');
+            try {
+                const res = await fetch(`${API_BASE}/admin/seat-templates`);
+                const templates = await res.json();
+                select.innerHTML = '<option value="" disabled selected>-- Select Blueprint --</option>';
+                templates.forEach(t => select.innerHTML += `<option value="${t.templateId}">${t.templateName} (${t.hallName})</option>`);
+            } catch (err) {}
+        }
+
+        async function executeCreateShowtime() {
+            const title = document.getElementById('movie-title').value;
+            const description = document.getElementById('movie-description').value;
+            const bannerFile = document.getElementById('movie-banner').files[0];
+            const start = document.getElementById('start-time').value;
+            const duration = document.getElementById('duration').value;
+            const templateId = document.getElementById('template-select').value;
+            const btn = document.getElementById('btn-save-show');
+
+            if (!title || !start || !templateId) return alert("Required fields missing.");
+
+            btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+
+            try {
+                let bannerBase64 = null;
+                if (bannerFile) bannerBase64 = await toBase64(bannerFile);
+
+                const tRes = await fetch(`${API_BASE}/admin/seat-template/${templateId}`);
+                const templateData = await tRes.json();
+
+                const createRes = await fetch(`${API_BASE}/admin/showtime`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        movieTitle: title, description, bannerImage: bannerBase64,
+                        startTime: new Date(start).toISOString(), durationMinutes: parseInt(duration),
+                        hallName: templateData.hallName, rows: templateData.dimensions.rows, cols: templateData.dimensions.columns
+                    })
+                });
+
+                const newShow = await createRes.json();
+
+                const targetShowtimeId = newShow.id || newShow.data?.id || newShow.showtimeId;
+                if (!targetShowtimeId) throw new Error("Backend did not return a valid Showtime ID");
+
+                const applyRes = await fetch(`${API_BASE}/admin/showtime/${targetShowtimeId}/apply-template`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ templateId })
+                });
+
+                if (!applyRes.ok) throw new Error("Showtime created, but failed to apply template.");
+
+                closeModals(); fetchShowtimes();
+                
+                // Clear Form
+                document.getElementById('movie-title').value = '';
+                document.getElementById('movie-description').value = '';
+                document.getElementById('movie-banner').value = '';
+
+            } catch (err) { alert("Error creating showtime."); } finally { btn.disabled = false; btn.innerHTML = 'Create Show'; }
+        }
+
+        // --- EDIT ---
+        function openEditModal(id) {
+            const show = allShowtimes.find(s => s.id === id);
+            if (!show) return;
+
+            document.getElementById('edit-id').value = show.id;
+            document.getElementById('edit-title').value = show.movieTitle;
+            document.getElementById('edit-description').value = show.description || '';
+            
+            const date = new Date(show.startTime);
+            date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+            document.getElementById('edit-start').value = date.toISOString().slice(0,16);
+            
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        async function executeEditShowtime() {
+            const id = document.getElementById('edit-id').value;
+            const title = document.getElementById('edit-title').value;
+            const description = document.getElementById('edit-description').value;
+            const bannerFile = document.getElementById('edit-banner').files[0];
+            const start = document.getElementById('edit-start').value;
+            const btn = document.getElementById('btn-update-show');
+
+            btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+            try {
+                let bannerBase64 = undefined; 
+                if (bannerFile) bannerBase64 = await toBase64(bannerFile);
+
+                const res = await fetch(`${API_BASE}/admin/showtime/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        movieTitle: title,
+                        description: description,
+                        startTime: new Date(start).toISOString(),
+                        ...(bannerBase64 && { bannerImage: bannerBase64 })
+                    })
+                });
+
+                if (!res.ok) throw new Error("Update failed");
+                closeModals(); fetchShowtimes();
+            } catch (err) { alert("Error updating showtime."); } finally { btn.disabled = false; btn.innerHTML = 'Save Changes'; }
+        }
+
+        // --- DELETE ---
+        async function deleteShowtime(id) {
+            if (!confirm("Are you sure? This deletes all associated tickets!")) return;
+            try {
+                await fetch(`${API_BASE}/admin/showtime/${id}`, { method: 'DELETE' });
+                fetchShowtimes();
+            } catch (err) { alert("Failed to delete."); }
+        }
+
+        // --- LIVE MONITOR (RADAR) ---
+        let currentMonitorShowtime = null;
+
+        function getDynamicColor(typeStr) {
+            if (typeStr === 'normal') return '#10b981'; // Emerald
+            if (typeStr === 'vip') return '#f43f5e'; // Rose
+            if (typeStr === 'sweetbox') return '#8b5cf6'; // Violet
+
+            let hash = 0;
+            for (let i = 0; i < typeStr.length; i++) {
+                hash = typeStr.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const hue = Math.abs(hash) % 360;
+            return `hsl(${hue}, 70%, 45%)`; 
+        }
+
+        // --- NEW: Dynamic Legend Engine ---
+        function buildRadarStyles(parsedData) {
+            let cssStr = '';
+            
+            // Step 1: Find every unique seat type present in this specific showtime
+            const uniqueTypes = [...new Set(parsedData.map(s => s.type).filter(t => t && t !== 'empty'))];
+
+            // Step 2: Build the core status legend (Held, Sold, Unavailable)
+            let legendHtml = `
+                <div class="monitor-legend-item"><div class="monitor-color" style="background:#f97316;"></div> Held (In Cart)</div>
+                <div class="monitor-legend-item"><div class="monitor-color" style="background:#94a3b8;"></div> Sold</div>
+                <div class="monitor-legend-item"><div class="monitor-color" style="background:#ef4444;"></div> Unavailable</div>
+                <div style="width: 1px; height: 16px; background: var(--border); margin: 0 10px;"></div>
+            `;
+
+            // Step 3: Append the dynamic Seat Types (Normal, VIP, Custom...) with their exact colors
+            uniqueTypes.forEach(type => {
+                const color = getDynamicColor(type);
+                
+                // Add CSS rules for this specific type
+                cssStr += `.seat.available[data-type="${type}"] { background: var(--surface); color: var(--text-main); border: 2px solid ${color}; }\n`;
+                cssStr += `.seat.held[data-type="${type}"] { background: #fff7ed; color: #c2410c; border: 2px solid #f97316; animation: holdBlink 1.5s infinite; }\n`;
+                
+                // Add an HTML item to the legend
+                const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
+                legendHtml += `
+                    <div class="monitor-legend-item">
+                        <div class="monitor-color" style="background:var(--surface); border: 2px solid ${color}; box-sizing: border-box;"></div> 
+                        ${capitalizedType}
+                    </div>
+                `;
+            });
+
+            // Inject the CSS and the Legend HTML
+            document.getElementById('dynamic-radar-styles').innerHTML = cssStr;
+            document.getElementById('radar-legend').innerHTML = legendHtml;
+        }
+
+        async function openLiveMonitor(showtimeId, movieTitle) {
+            currentMonitorShowtime = showtimeId;
+            document.getElementById('monitor-subtitle').textContent = movieTitle;
+            document.getElementById('monitor-modal').classList.remove('hidden');
+            
+            await fetchAndRenderMonitor(showtimeId, true);
+            monitorInterval = setInterval(() => fetchAndRenderMonitor(showtimeId, false), 1500);
+        }
+
+        function closeMonitor() {
+            document.getElementById('monitor-modal').classList.add('hidden');
+            if (monitorInterval) clearInterval(monitorInterval);
+        }
+
+        async function fetchAndRenderMonitor(showtimeId, rebuildGrid) {
+            try {
+                const mapRes = await fetch(`${API_BASE}/tickets/${showtimeId}/seats`);
+                const rawSeats = await mapRes.json();
+
+                const parsedData = rawSeats.map(seat => {
+                    let r = seat.rowNumber;
+                    let c = seat.colNumber;
+
+                    if (r === undefined || r === null) {
+                        const rMatch = seat.seatNumber ? seat.seatNumber.match(/^[A-Z]+/) : null;
+                        r = rMatch ? rMatch[0].charCodeAt(0) - 65 : 0;
+                    }
+                    if (c === undefined || c === null) {
+                        const cMatch = seat.seatNumber ? seat.seatNumber.match(/\d+$/) : null;
+                        c = cMatch ? parseInt(cMatch[0], 10) - 1 : 0;
+                    }
+
+                    return { ...seat, gridRow: r, gridCol: c };
+                });
+
+                if (rebuildGrid) {
+                    buildRadarStyles(parsedData);
+
+                    const ROWS = Math.max(...parsedData.map(s => s.gridRow || 0)) + 1;
+                    const COLS = Math.max(...parsedData.map(s => s.gridCol || 0)) + 1;
+                    
+                    const grid = document.getElementById('monitor-grid');
+                    grid.style.gridTemplateColumns = `repeat(${COLS}, 28px)`;
+                    grid.innerHTML = '';
+
+                    for (let r = 0; r < ROWS; r++) {
+                        for (let c = 0; c < COLS; c++) {
+                            const slot = document.createElement('div');
+                            slot.className = 'cell-slot';
+                            slot.dataset.r = r; slot.dataset.c = c;
+                            const seat = document.createElement('div');
+                            seat.className = 'seat empty'; 
+                            slot.appendChild(seat);
+                            grid.appendChild(slot);
+                        }
+                    }
+                }
+
+                parsedData.forEach(seatData => {
+                    const slot = document.querySelector(`.cell-slot[data-r="${seatData.gridRow}"][data-c="${seatData.gridCol}"]`);
+                    if (!slot) return;
+                    const seatEl = slot.querySelector('.seat');
+                    
+                    if (seatData.type === 'empty') {
+                        seatEl.className = 'seat empty';
+                        seatEl.textContent = ''; 
+                        seatEl.onclick = null;
+                        seatEl.style.cursor = 'default';
+                    } else {
+                        seatEl.dataset.type = seatData.type;
+                        seatEl.textContent = seatData.seatNumber ? seatData.seatNumber.replace(/^[A-Z]+/, '') : '';
+                        
+                        if (seatData.status === 'sold') seatEl.className = 'seat sold';
+                        else if (seatData.status === 'held') seatEl.className = 'seat held';
+                        else if (seatData.status === 'unavailable' || seatData.status === 'broken') seatEl.className = 'seat broken';
+                        else seatEl.className = 'seat available';
+
+                        seatEl.onclick = () => openOverrideModal(seatData.seatNumber, seatData.status);
+                    }
+                });
+            } catch(e) { console.warn("Radar update failed.", e); }
+        }
+
+        // --- MANUAL SEAT OVERRIDE ---
+        function openOverrideModal(seatId, currentStatus) {
+            document.getElementById('override-seat-label').textContent = seatId;
+            document.getElementById('override-current-status').textContent = currentStatus.toUpperCase();
+            document.getElementById('override-showtime-id').value = currentMonitorShowtime;
+            document.getElementById('override-seat-id').value = seatId;
+            
+            document.getElementById('seat-override-modal').classList.remove('hidden');
+        }
+
+        function closeOverrideModal() {
+            document.getElementById('seat-override-modal').classList.add('hidden');
+        }
+
+        async function executeSeatOverride() {
+            const showtimeId = document.getElementById('override-showtime-id').value;
+            const seatId = document.getElementById('override-seat-id').value;
+            const newStatus = document.getElementById('override-new-status').value;
+            const btn = document.getElementById('btn-submit-override');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Applying...';
+
+            try {
+                const res = await fetch(`${API_BASE}/admin/showtime/${showtimeId}/seat/${seatId}/override`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                if (!res.ok) throw new Error("Failed to override seat.");
+                closeOverrideModal();
+                fetchAndRenderMonitor(showtimeId, false);
+                
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Apply Override';
+            }
+        }
+    </script>
+</body>
+</html>

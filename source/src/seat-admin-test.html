@@ -1,155 +1,179 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<!-- Integrated FontAwesome for professional vector icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Rush - Blueprint Editor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
 <style id="base-styles">
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px 0; margin: 0; min-height: 100vh;}
+    :root {
+        --bg-color: #f3f4f6;
+        --surface: #ffffff;
+        --primary: #4f46e5;
+        --primary-hover: #4338ca;
+        --text-main: #111827;
+        --text-muted: #6b7280;
+        --border: #e5e7eb;
+        --sidebar-bg: #0f172a;
+    }
+
+    body { 
+        font-family: 'Inter', sans-serif; 
+        background: var(--bg-color); 
+        color: var(--text-main);
+        display: flex; flex-direction: column; align-items: center; 
+        padding: 32px 0; margin: 0; min-height: 100vh;
+        font-size: 14px;
+    }
     
     /* --- MODALS --- */
-    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-    .modal-overlay.hidden { display: none; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1000; transition: opacity 0.2s;}
+    .modal-overlay.hidden { display: none; opacity: 0; pointer-events: none;}
     
-    .modal-box { background: white; padding: 30px 40px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); text-align: center; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;}
-    .modal-box.wide { max-width: 750px; }
-    .modal-box h2 { margin-top: 0; color: #1e293b; font-size: 22px; display: flex; justify-content: space-between; align-items: center;}
-    .close-modal { background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8; transition: 0.2s;}
-    .close-modal:hover { color: #0f172a; transform: scale(1.1);}
+    .modal-box { background: var(--surface); padding: 32px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); text-align: left; max-width: 450px; width: 90%; max-height: 90vh; overflow-y: auto;}
+    .modal-box.wide { max-width: 800px; }
+    .modal-box h2 { margin: 0 0 24px 0; font-size: 20px; font-weight: 600; color: var(--text-main); display: flex; justify-content: space-between; align-items: center;}
     
-    .input-group { display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center; text-align: left; gap: 15px;}
-    .input-group label { font-weight: bold; color: #334155; font-size: 14px; flex: 1;}
-    .input-group input, .input-group select { width: 120px; padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 6px; font-size: 14px; outline: none;}
-    .input-group input[type="color"] { padding: 2px 5px; height: 38px; cursor: pointer;}
+    .action-btn { width: 32px; height: 32px; border-radius: 8px; border: none; background: transparent; color: var(--text-muted); font-size: 14px; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; justify-content: center;}
+    .action-btn:hover { background: #f1f5f9; color: var(--text-main); }
+    .action-btn.danger:hover { background: #fee2e2; color: #ef4444; }
+    
+    /* Form Inputs */
+    .input-group { margin-bottom: 16px; }
+    .input-group label { display: block; margin-bottom: 6px; font-weight: 500; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;}
+    .input-group input, .input-group select { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; font-family: inherit; font-size: 13px; outline: none; transition: 0.2s; background: #f9fafb;}
+    .input-group input:focus, .input-group select:focus { border-color: var(--primary); background: var(--surface); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+    .input-group input[type="color"] { padding: 2px 4px; height: 40px; cursor: pointer;}
 
-    .btn-primary { background: #1976d2; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; transition: background 0.2s;}
-    .btn-primary:hover { background: #1565c0; }
-    .btn-success { background: #2e7d32; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s;}
+    /* Buttons */
+    button { font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; font-weight: 500; transition: all 0.2s; outline: none; }
+    .btn-primary { background: var(--primary); color: white; border: none; padding: 10px 18px; border-radius: 8px; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);}
+    .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);}
+    .btn-success { background: #10b981; color: white; border: none; padding: 10px 18px; border-radius: 8px; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);}
+    .btn-success:hover { background: #059669; transform: translateY(-1px);}
+    .btn-secondary { background: var(--surface); color: var(--text-main); border: 1px solid var(--border); padding: 10px 18px; border-radius: 8px; }
+    .btn-secondary:hover { background: #f9fafb; border-color: #d1d5db; }
     
     /* Seat Manager Table */
-    .seat-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; text-align: left; font-size: 14px;}
-    .seat-table th, .seat-table td { border-bottom: 1px solid #e2e8f0; padding: 12px 8px; vertical-align: middle;}
-    .seat-table th { color: #64748b; font-weight: 600; }
-    .preview-box { width: 24px; height: 24px; border-radius: 4px; display: inline-block; vertical-align: middle; margin-right: 8px;}
-    
-    .btn-icon { background: none; border: none; cursor: pointer; font-size: 14px; padding: 6px; border-radius: 4px; transition: 0.2s; opacity: 0.7;}
-    .btn-icon:hover { opacity: 1; background: #f1f5f9; }
-    .btn-icon.danger { color: #d32f2f; border-left: 2px solid #eee; padding-left: 15px; margin-left: 5px; }
-    .btn-icon.danger:hover { background: #fee2e2; }
+    .table-container { background: var(--surface); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 24px;}
+    .seat-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .seat-table th { background: #f8fafc; font-weight: 600; color: var(--text-muted); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; padding: 12px 20px; border-bottom: 1px solid var(--border); }
+    .seat-table td { padding: 14px 20px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; color: var(--text-main); }
+    .seat-table tr:hover { background: #f8fafc; }
+    .preview-box { width: 20px; height: 20px; border-radius: 4px; display: inline-block; vertical-align: middle;}
     
     /* Add/Edit Seat Form */
-    .add-seat-form { background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px dashed #cbd5e1; text-align: left;}
-    .add-seat-form h3 { margin-top: 0; font-size: 16px; color: #334155; display: flex; align-items: center; gap: 8px;}
+    .add-seat-form { background: #f8fafc; padding: 24px; border-radius: 12px; border: 1px dashed #cbd5e1; text-align: left;}
+    .add-seat-form h3 { margin: 0 0 16px 0; font-size: 15px; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 8px;}
 
     /* --- EDITOR WORKSPACE --- */
     #editor-workspace { display: none; flex-direction: column; align-items: center; width: 100%; }
     #editor-workspace.active { display: flex; }
 
-    /* Dashboard */
-    .dashboard { background: #1e293b; color: #fff; width: 90%; max-width: 1200px; border-radius: 10px; padding: 15px 25px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.15);}
-    .stat-group { display: flex; gap: 20px; font-size: 14px; flex-wrap: wrap;}
+    /* Dashboard Stats Card */
+    .dashboard { background: var(--surface); width: 90%; max-width: 1200px; border-radius: 12px; padding: 16px 24px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid var(--border);}
+    .stat-group { display: flex; gap: 24px; font-size: 13px; font-weight: 500; color: var(--text-muted); flex-wrap: wrap;}
     .stat-item { display: flex; align-items: center; gap: 8px; }
-    .stat-color { width: 12px; height: 12px; border-radius: 3px; }
-    .revenue-box { display: flex; align-items: center; gap: 10px; background: rgba(74, 222, 128, 0.1); padding: 8px 15px; border-radius: 8px; border: 1px solid rgba(74, 222, 128, 0.2);}
-    .stat-total { font-weight: bold; font-size: 18px; color: #4ade80; }
+    .stat-color { width: 12px; height: 12px; border-radius: 4px; }
+    .revenue-box { display: flex; align-items: center; gap: 10px; background: #f0fdf4; padding: 10px 16px; border-radius: 8px; border: 1px solid #bbf7d0;}
+    .stat-total { font-weight: 700; font-size: 18px; color: #15803d; }
 
-    /* Toolbar */
-    .admin-panel { background: #fff; padding: 15px 25px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; text-align: center; width: 90%; max-width: 1200px; display: flex; justify-content: space-between; align-items: center;}
-    .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap;}
+    /* Toolbar Card */
+    .admin-panel { background: var(--surface); padding: 16px 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid var(--border); margin-bottom: 32px; width: 90%; max-width: 1200px; display: flex; justify-content: space-between; align-items: center;}
+    .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap;}
     
-    .tool-btn { background: #e0e0e0; color: #555; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; transition: all 0.2s; display: flex; align-items: center; gap: 6px;}
-    .tool-btn:hover { background: #d5d5d5; }
-    .tool-btn.active { background: #1976d2; color: #fff; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
-    .shortcut { font-size: 10px; background: rgba(0,0,0,0.1); padding: 2px 5px; border-radius: 4px; margin-left: 4px; font-family: monospace;}
+    .tool-btn { background: #f8fafc; color: var(--text-muted); border: 1px solid var(--border); padding: 8px 14px; border-radius: 8px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 8px;}
+    .tool-btn:hover { background: #f1f5f9; color: var(--text-main); }
+    .tool-btn.active { background: var(--primary); color: white; border-color: var(--primary); box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2); }
+    .shortcut { font-size: 10px; background: rgba(0,0,0,0.08); padding: 2px 6px; border-radius: 4px; margin-left: auto; font-family: monospace; font-weight: 600;}
+    .tool-btn.active .shortcut { background: rgba(255,255,255,0.2); }
     
-    .btn-manage-seats { background: #6366f1; color: white; border: none; padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;}
-    .btn-manage-seats:hover { background: #4f46e5; }
-
-    .history-group { display: flex; gap: 5px; border-right: 2px solid #eee; padding-right: 15px; margin-right: 5px;}
-    .icon-btn { background: none; border: none; font-size: 16px; cursor: pointer; padding: 5px 8px; opacity: 0.4; transition: 0.2s; color: #334155;}
-    .icon-btn.active { opacity: 1; color: #1976d2; }
-    .icon-btn.danger { color: #d32f2f; opacity: 0.7; border-left: 2px solid #eee; padding-left: 15px; margin-left: 5px; }
-    .icon-btn.danger:hover { opacity: 1; }
+    .history-group { display: flex; gap: 4px; border-right: 1px solid var(--border); padding-right: 16px; margin-right: 4px;}
+    .history-group .action-btn.active { color: var(--primary); }
 
     /* Grid Layout */
-    .screen-container { margin-bottom: 30px; text-align: center; transition: width 0.3s ease; }
-    .screen-bar { height: 16px; background: linear-gradient(to bottom, #d1d5db, #e5e7eb); border-radius: 50% / 100% 100% 0 0; margin-bottom: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);}
-    .screen-text { font-weight: 800; color: #9ca3af; letter-spacing: 6px; font-size: 12px; }
+    .screen-container { margin-bottom: 40px; text-align: center; transition: width 0.3s ease; }
+    .screen-bar { height: 12px; background: #cbd5e1; border-radius: 50% / 100% 100% 0 0; margin-bottom: 12px;}
+    .screen-text { font-weight: 700; color: #94a3b8; letter-spacing: 8px; font-size: 12px; }
 
-    .grid-wrapper { width: 90%; max-width: 95vw; overflow-x: auto; display: flex; flex-direction: column; align-items: center; padding-bottom: 20px;}
-    .grid-container { display: flex; align-items: center; gap: 15px; margin-bottom: 20px;}
+    .grid-wrapper { width: 90%; max-width: 95vw; overflow-x: auto; display: flex; flex-direction: column; align-items: center; padding-bottom: 60px;}
+    .grid-container { display: flex; align-items: center; gap: 16px; margin-bottom: 20px;}
     .row-labels { display: flex; flex-direction: column; gap: 4px; }
-    .row-label { height: 32px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #999; font-size: 13px; width: 24px;}
-    .grid { display: grid; gap: 4px; user-select: none; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.08); border: 1px solid #e0e0e0;}
+    .row-label { height: 32px; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #94a3b8; font-size: 12px; width: 24px;}
     
-    .cell-slot { width: 32px; height: 32px; border-radius: 4px; background: #fafafa; border: 1px dashed #d0d0d0; position: relative;}
-    .seat { width: 100%; height: 100%; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: crosshair; transition: transform 0.05s; position: absolute; top: 0; left: 0; box-sizing: border-box; overflow: hidden;}
-    .seat:hover { transform: scale(1.15); z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,0.2);}
+    .grid { display: grid; gap: 4px; user-select: none; background: var(--surface); padding: 32px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03); border: 1px solid var(--border);}
+    .cell-slot { width: 32px; height: 32px; border-radius: 6px; background: #f8fafc; border: 1px dashed #cbd5e1; position: relative;}
+    .seat { width: 100%; height: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; cursor: crosshair; transition: transform 0.1s; position: absolute; top: 0; left: 0; box-sizing: border-box; overflow: hidden;}
+    .seat:hover { transform: scale(1.15); z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.15);}
 
     .seat.empty { display: none; } 
-    .seat.is-blocked { opacity: 0.6; }
-    .seat.is-blocked::before { content: ''; position: absolute; width: 140%; height: 2px; background: #d32f2f; transform: rotate(45deg); top: 14px; left: -6px; pointer-events: none; }
-    .seat.admin-selected::after { content: ''; position: absolute; top: -4px; left: -4px; right: -4px; bottom: -4px; border: 3px solid #1976d2; border-radius: 6px; pointer-events: none; background: rgba(25, 118, 210, 0.2); }
+    .seat.is-blocked { opacity: 0.5; }
+    .seat.is-blocked::before { content: ''; position: absolute; width: 140%; height: 2px; background: #ef4444; transform: rotate(45deg); top: 14px; left: -6px; pointer-events: none; }
+    .seat.admin-selected::after { content: ''; position: absolute; top: -3px; left: -3px; right: -3px; bottom: -3px; border: 3px solid var(--primary); border-radius: 8px; pointer-events: none; background: rgba(79, 70, 229, 0.15); }
 
     /* Bulk Action Panel */
-    .bulk-panel { background: #1e293b; color: white; padding: 15px 30px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 15px; position: fixed; bottom: -100px; transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 100; font-size: 14px;}
-    .bulk-panel.visible { bottom: 30px; }
-    .bulk-panel span { font-weight: bold; margin-right: 15px; }
-    .bulk-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 6px;}
+    .bulk-panel { background: var(--sidebar-bg); color: white; padding: 16px 32px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 16px; position: fixed; bottom: -100px; transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 100; font-size: 13px;}
+    .bulk-panel.visible { bottom: 32px; }
+    .bulk-panel span { font-weight: 600; margin-right: 16px; color: #f8fafc; }
+    .bulk-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; font-weight: 500;}
     .bulk-btn:hover { background: rgba(255,255,255,0.2); }
-    .bulk-btn.danger { border-color: #ef4444; color: #ef4444; }
-    .bulk-btn.danger:hover { background: #ef4444; color: white; }
+    .bulk-btn.danger { border-color: rgba(239, 68, 68, 0.5); color: #fca5a5; }
+    .bulk-btn.danger:hover { background: #ef4444; color: white; border-color: #ef4444;}
 </style>
 <style id="dynamic-seat-styles"></style>
 </head>
 <body>
 
-<!-- SETUP MODAL -->
 <div id="setup-modal" class="modal-overlay">
     <div class="modal-box">
-        <h2>Seat Map Configuration</h2>
-        <div class="input-group">
-            <label>Total Rows:</label> <input type="number" id="setup-rows" value="13" min="1" max="100">
+        <h2 style="justify-content: flex-start; gap: 12px;"><i class="fa-solid fa-map" style="color: var(--primary);"></i> Seat Map Configuration</h2>
+        <div style="display: flex; gap: 16px;">
+            <div class="input-group" style="flex: 1;">
+                <label>Total Rows:</label> 
+                <input type="number" id="setup-rows" value="13" min="1" max="100">
+            </div>
+            <div class="input-group" style="flex: 1;">
+                <label>Total Columns:</label> 
+                <input type="number" id="setup-cols" value="22" min="1" max="200">
+            </div>
         </div>
-        <div class="input-group">
-            <label>Total Columns:</label> <input type="number" id="setup-cols" value="22" min="1" max="200">
-        </div>
-        <button class="btn-primary" style="width: 100%; margin-top: 15px;" onclick="startMapping()">Generate Canvas</button>
+        <button class="btn-primary" style="width: 100%; margin-top: 8px;" onclick="startMapping()">Generate Canvas</button>
     </div>
 </div>
 
-<!-- VERIFICATION MODAL -->
 <div id="verify-modal" class="modal-overlay hidden">
     <div class="modal-box">
-        <h2>Confirm Save</h2>
-        <p id="verify-text" style="color: #64748b; font-size: 14px; margin-bottom: 25px; line-height: 1.5;"></p>
-        <div style="display: flex; gap: 10px;">
-            <button class="btn-primary" style="background: #f1f5f9; color: #475569; width: 100%;" onclick="closeVerifyModal()">Cancel</button>
-            <button class="btn-success" style="width: 100%;" onclick="executeSave()">Confirm & Save</button>
+        <h2>Confirm Blueprint Save</h2>
+        <p id="verify-text" style="color: var(--text-muted); font-size: 14px; margin-top: -10px; margin-bottom: 24px; line-height: 1.6;"></p>
+        <div style="display: flex; gap: 12px;">
+            <button class="btn-secondary" style="flex: 1;" onclick="closeVerifyModal()">Cancel</button>
+            <button class="btn-success" style="flex: 1;" onclick="executeSave()">Confirm & Save</button>
         </div>
     </div>
 </div>
 
-<!-- SEAT MANAGER MODAL -->
 <div id="seat-manager-modal" class="modal-overlay hidden">
     <div class="modal-box wide">
-        <h2>Manage Seat Types <button class="close-modal" onclick="closeSeatManager()"><i class="fa-solid fa-xmark"></i></button></h2>
+        <h2>Manage Seat Types <button class="action-btn" onclick="closeSeatManager()"><i class="fa-solid fa-xmark"></i></button></h2>
         
-        <table class="seat-table">
-            <thead><tr><th>Preview</th><th>Name</th><th>Style</th><th>Text</th><th>Price</th><th>Actions</th></tr></thead>
-            <tbody id="seat-types-list">
-                <!-- Populated by JS -->
-            </tbody>
-        </table>
+        <div class="table-container">
+            <table class="seat-table">
+                <thead><tr><th>Preview</th><th>Name</th><th>Style</th><th>Text</th><th>Price</th><th style="text-align: right;">Actions</th></tr></thead>
+                <tbody id="seat-types-list">
+                    </tbody>
+            </table>
+        </div>
 
         <div class="add-seat-form">
-            <h3 id="seat-form-title"><i class="fa-solid fa-plus"></i> Create New Seat Type</h3>
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+            <h3 id="seat-form-title"><i class="fa-solid fa-plus" style="color: var(--primary);"></i> Create New Seat Type</h3>
+            <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: -16px;">
                 <div class="input-group" style="flex: 1;"><label>Name:</label> <input type="text" id="new-seat-name" placeholder="e.g. Balcony"></div>
-                <div class="input-group"><label>Price ($):</label> <input type="number" id="new-seat-price" value="0" min="0" style="width:70px"></div>
+                <div class="input-group"><label>Price ($):</label> <input type="number" id="new-seat-price" value="0" min="0" style="width:100px"></div>
                 <div class="input-group"><label>Color:</label> <input type="color" id="new-seat-color" value="#8b5cf6"></div>
             </div>
-            <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 10px;">
+            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
                 <div class="input-group" style="flex: 1;">
                     <label>Fill Style:</label> 
                     <select id="new-seat-fill">
@@ -165,20 +189,19 @@
                     </select>
                 </div>
             </div>
-            <div style="margin-top: 15px; display: flex; align-items: center;">
+            <div style="margin-top: 8px; display: flex; align-items: center; gap: 12px;">
                 <button class="btn-primary" id="btn-save-seat" onclick="saveSeatType()">Add Type</button>
-                <button class="btn-icon" id="btn-cancel-edit" style="display:none; margin-left: 10px;" onclick="cancelEdit()"><i class="fa-solid fa-xmark"></i> Cancel Edit</button>
+                <button class="btn-secondary" id="btn-cancel-edit" style="display:none;" onclick="cancelEdit()">Cancel Edit</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- MAIN WORKSPACE -->
 <div id="editor-workspace">
     <div class="dashboard">
         <div class="stat-group" id="dashboard-stats"></div>
         <div class="revenue-box">
-            <span>Max Revenue:</span>
+            <span style="color: #166534; font-weight: 500;">Max Revenue:</span>
             <span class="stat-total" id="stat-revenue">$0</span>
         </div>
     </div>
@@ -186,16 +209,16 @@
     <div class="admin-panel">
         <div class="toolbar" id="toolbar">
             <div class="history-group">
-                <button class="icon-btn" id="btn-undo" onclick="undo()" title="Undo (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
-                <button class="icon-btn" id="btn-redo" onclick="redo()" title="Redo (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
-                <button class="icon-btn danger" onclick="resetMap()" title="Clear All Seats"><i class="fa-solid fa-trash-can"></i></button>
+                <button class="action-btn" id="btn-undo" onclick="undo()" title="Undo (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
+                <button class="action-btn" id="btn-redo" onclick="redo()" title="Redo (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
+                <button class="action-btn danger" onclick="resetMap()" title="Clear All Seats"><i class="fa-solid fa-trash-can"></i></button>
             </div>
-            <div style="margin-right: 15px;">
-                <button class="btn-manage-seats" onclick="openSeatManager()"><i class="fa-solid fa-gear"></i> Config & Pricing</button>
+            <div style="margin-right: 12px; border-right: 1px solid var(--border); padding-right: 24px;">
+                <button class="btn-secondary" onclick="openSeatManager()"><i class="fa-solid fa-gear"></i> Config & Pricing</button>
             </div>
-            <div id="dynamic-tools" style="display: flex; gap: 8px;"></div>
+            <div id="dynamic-tools" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
         </div>
-        <button class="btn-success" onclick="promptSave()">Save</button>
+        <button class="btn-success" onclick="promptSave()"><i class="fa-solid fa-cloud-arrow-up"></i> Publish</button>
     </div>
 
     <div class="grid-wrapper">
@@ -212,17 +235,18 @@
 
 <div class="bulk-panel" id="bulk-panel">
     <span id="bulk-count">0 Selected</span>
-    <div id="dynamic-bulk-actions" style="display:flex; gap:10px;"></div>
-    <button class="bulk-btn danger" onclick="bulkToggleBlock()" style="margin-left: 10px;"><i class="fa-solid fa-ban"></i> Toggle Blocked</button>
-    <button class="bulk-btn" onclick="clearSelection()" style="margin-left: 15px;">Deselect All (Esc)</button>
+    <div id="dynamic-bulk-actions" style="display:flex; gap:12px;"></div>
+    <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.2); margin: 0 8px;"></div>
+    <button class="bulk-btn danger" onclick="bulkToggleBlock()"><i class="fa-solid fa-ban"></i> Toggle Blocked</button>
+    <button class="bulk-btn" onclick="clearSelection()" style="margin-left: auto;">Deselect All (Esc)</button>
 </div>
 
 <script>
     // --- DYNAMIC DATA CONFIGURATION ---
     let seatConfig = {
-        'normal': { name: 'Normal', color: '#2e7d32', isFill: false, textColor: '#000000', price: 15 },
-        'vip': { name: 'VIP', color: '#e91e63', isFill: false, textColor: '#000000', price: 40 },
-        'sweetbox': { name: 'Sweetbox', color: '#e91e63', isFill: true, textColor: '#ffffff', price: 65 }
+        'normal': { name: 'Normal', color: '#10b981', isFill: false, textColor: '#111827', price: 15 },
+        'vip': { name: 'VIP', color: '#f43f5e', isFill: false, textColor: '#111827', price: 40 },
+        'sweetbox': { name: 'Sweetbox', color: '#8b5cf6', isFill: true, textColor: '#ffffff', price: 65 }
     };
 
     let ROWS = 13, COLS = 22; 
@@ -244,11 +268,11 @@
 
         for (const [id, config] of Object.entries(seatConfig)) {
             if (config.isFill) cssStr += `.seat[data-type="${id}"] { background: ${config.color}; color: ${config.textColor}; border: none; }\n`;
-            else cssStr += `.seat[data-type="${id}"] { background: #fff; color: ${config.textColor}; border: 2px solid ${config.color}; }\n`;
+            else cssStr += `.seat[data-type="${id}"] { background: var(--surface); color: ${config.textColor}; border: 2px solid ${config.color}; }\n`;
 
-            let previewStyle = config.isFill ? `background:${config.color};` : `border: 2px solid ${config.color};`;
+            let previewStyle = config.isFill ? `background:${config.color};` : `background:var(--surface); border: 2px solid ${config.color}; box-sizing: border-box;`;
             toolsHTML += `<button class="tool-btn" data-tool="${id}">
-                <div style="width:12px;height:12px;border-radius:2px;${previewStyle}"></div> 
+                <div style="width:12px;height:12px;border-radius:3px;${previewStyle}"></div> 
                 ${config.name} <span class="shortcut">${shortcutIndex++}</span>
             </button>`;
 
@@ -257,7 +281,7 @@
         }
 
         toolsHTML += `<button class="tool-btn" data-tool="empty"><i class="fa-solid fa-eraser"></i> Erase <span class="shortcut">${shortcutIndex}</span></button>`;
-        statsHTML += `<div class="stat-item"><div class="stat-color" style="background:#64748b"></div> <span id="stat-blocked">0 Blocked</span></div>`;
+        statsHTML += `<div class="stat-item"><div class="stat-color" style="background:#cbd5e1"></div> <span id="stat-blocked">0 Blocked</span></div>`;
 
         dynamicStyles.innerHTML = cssStr;
         document.getElementById('dynamic-tools').innerHTML = toolsHTML;
@@ -283,18 +307,18 @@
         tbody.innerHTML = '';
         
         for (const [id, config] of Object.entries(seatConfig)) {
-            let previewStyle = config.isFill ? `background:${config.color};` : `background:#fff; border: 2px solid ${config.color};`;
+            let previewStyle = config.isFill ? `background:${config.color};` : `background:var(--surface); border: 2px solid ${config.color}; box-sizing: border-box;`;
             
             tbody.innerHTML += `
                 <tr>
                     <td><div class="preview-box" style="${previewStyle}"></div></td>
-                    <td><strong>${config.name}</strong></td>
+                    <td style="font-weight: 500;">${config.name}</td>
                     <td>${config.isFill ? "Solid Fill" : "Outline"}</td>
-                    <td><span style="background:#eee; padding:2px 6px; border-radius:4px;">${config.textColor === '#ffffff' ? 'White' : 'Black'}</span></td>
-                    <td>$${config.price}</td>
-                    <td>
-                        <button class="btn-icon" onclick="editSeatType('${id}')" title="Edit"><i class="fa-solid fa-pen"></i></button>
-                        ${id !== 'normal' ? `<button class="btn-icon danger" onclick="deleteSeatType('${id}')" title="Delete"><i class="fa-solid fa-trash-can"></i></button>` : ''}
+                    <td><span style="background:#f1f5f9; padding:2px 8px; border-radius:4px; font-size: 11px; font-weight: 600;">${config.textColor === '#ffffff' ? 'WHITE' : 'BLACK'}</span></td>
+                    <td style="font-weight: 600;">$${config.price}</td>
+                    <td style="text-align: right;">
+                        <button class="action-btn" onclick="editSeatType('${id}')" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                        ${id !== 'normal' ? `<button class="action-btn danger" onclick="deleteSeatType('${id}')" title="Delete"><i class="fa-solid fa-trash-can"></i></button>` : ''}
                     </td>
                 </tr>
             `;
@@ -317,9 +341,9 @@
         document.getElementById('new-seat-fill').value = config.isFill.toString();
         document.getElementById('new-seat-text').value = config.textColor;
 
-        document.getElementById('seat-form-title').innerHTML = `<i class="fa-solid fa-pen"></i> Editing: <strong>${config.name}</strong>`;
+        document.getElementById('seat-form-title').innerHTML = `<i class="fa-solid fa-pen" style="color: var(--primary);"></i> Editing: <strong>${config.name}</strong>`;
         document.getElementById('btn-save-seat').textContent = 'Update Type';
-        document.getElementById('btn-cancel-edit').style.display = 'inline-block';
+        document.getElementById('btn-cancel-edit').style.display = 'inline-flex';
     }
 
     function cancelEdit() {
@@ -328,7 +352,7 @@
         document.getElementById('new-seat-price').value = '0';
         document.getElementById('new-seat-color').value = '#8b5cf6';
         
-        document.getElementById('seat-form-title').innerHTML = `<i class="fa-solid fa-plus"></i> Create New Seat Type`;
+        document.getElementById('seat-form-title').innerHTML = `<i class="fa-solid fa-plus" style="color: var(--primary);"></i> Create New Seat Type`;
         document.getElementById('btn-save-seat').textContent = 'Add Type';
         document.getElementById('btn-cancel-edit').style.display = 'none';
     }
@@ -558,8 +582,8 @@
         const revenue = document.getElementById('stat-revenue').textContent;
         
         document.getElementById('verify-text').innerHTML = `
-            You are about to save a template with <strong style="color:#1e293b">${totalActive} active seats</strong> (${totalBlocked} blocked).<br><br>
-            Estimated Maximum Revenue Capacity: <strong style="color:#4ade80">${revenue}</strong>.<br><br>
+            You are about to save a template with <strong style="color:var(--text-main); font-weight:600;">${totalActive} active seats</strong> (${totalBlocked} blocked).<br><br>
+            Estimated Maximum Revenue Capacity: <strong style="color:#15803d; font-weight:600;">${revenue}</strong>.<br><br>
             Do you wish to proceed and lock in this layout?`;
         
         document.getElementById('verify-modal').classList.remove('hidden');
@@ -570,65 +594,50 @@
     }
 
     async function executeSave() {
-    closeVerifyModal();
-    
-    // 1. Ask the admin for the template details (matches your backend DTO)
-    const templateName = prompt('Enter a name for this template:', 'Standard Cinema Layout');
-    if (!templateName) return; // Abort if they click 'Cancel'
-    
-    const hallName = prompt('Which hall does this layout belong to?', 'Hall A');
-    if (!hallName) return; // Abort if they click 'Cancel'
+        closeVerifyModal();
+        
+        const templateName = prompt('Enter a name for this template:', 'Standard Cinema Layout');
+        if (!templateName) return; 
+        
+        const hallName = prompt('Which hall does this layout belong to?', 'Hall A');
+        if (!hallName) return; 
 
-    // 2. Gather the physical grid data
-    const layout = [];
-    document.querySelectorAll('.seat:not(.empty)').forEach(seat => {
-        layout.push({ 
-            id: seat.dataset.seatId, 
-            gridCol: parseInt(seat.dataset.gridX), 
-            gridRow: parseInt(seat.dataset.gridY), 
-            type: seat.dataset.type, 
-            isBlocked: seat.dataset.blocked === 'true' 
-        });
-    });
-
-    // 3. Construct the exact payload your NestJS API expects
-    const apiPayload = { 
-        templateName: templateName,
-        hallName: hallName,
-        dimensions: { rows: ROWS, columns: COLS }, 
-        seatConfiguration: seatConfig, 
-        layout: layout 
-    };
-
-    console.log("SENDING PAYLOAD TO API:", apiPayload);
-
-    // 4. Fire the request to your backend
-    try {
-        // Change the URL if your NestJS server is running on a different port/domain
-        const response = await fetch('http://localhost:3000/admin/seat-template', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(apiPayload)
+        const layout = [];
+        document.querySelectorAll('.seat:not(.empty)').forEach(seat => {
+            layout.push({ 
+                id: seat.dataset.seatId, 
+                gridCol: parseInt(seat.dataset.gridX), 
+                gridRow: parseInt(seat.dataset.gridY), 
+                type: seat.dataset.type, 
+                isBlocked: seat.dataset.blocked === 'true' 
+            });
         });
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        const apiPayload = { 
+            templateName: templateName,
+            hallName: hallName,
+            dimensions: { rows: ROWS, columns: COLS }, 
+            seatConfiguration: seatConfig, 
+            layout: layout 
+        };
+
+        try {
+            const response = await fetch('http://localhost:3000/admin/seat-template', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(apiPayload)
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            const result = await response.json();
+            alert(`Success! Template '${result.templateName}' saved with ${result.savedSeats} active seats.`);
+            
+        } catch (error) {
+            console.error("Failed to save template:", error);
+            alert("Failed to save template. Please make sure your NestJS backend is running.");
         }
-
-        const result = await response.json();
-        
-        // 5. Success feedback
-        console.log("SERVER RESPONSE:", result);
-        alert(`Success! Template '${result.templateName}' saved with ${result.savedSeats} active seats.`);
-        
-    } catch (error) {
-        // 6. Error feedback
-        console.error("Failed to save template to the database:", error);
-        alert("Failed to save template. Please make sure your NestJS backend is running and check the console.");
     }
-}
 </script>
 </body>
 </html>

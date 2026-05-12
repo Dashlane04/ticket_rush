@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 
@@ -36,5 +36,10 @@ export class RedisService {
 
   async exists(lockKey: string): Promise<number>{
     return await this.redis.exists(lockKey);
+  }
+
+  async del(key: string): Promise<number> {
+    // ioredis uses .del() to delete keys
+    return await this.redis.del(key); 
   }
 }

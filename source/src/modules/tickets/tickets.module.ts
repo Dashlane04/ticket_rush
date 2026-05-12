@@ -17,6 +17,7 @@ import { TICKET_QUEUE } from '../../infrastructure/queue/queue.constants'; // <-
     BullModule.registerQueue({
       name: TICKET_QUEUE,
     }),
+    TypeOrmModule.forFeature([ShowtimeSeat, Ticket]), // <-- Ensure entities are registered for the processor
   ],
   controllers: [TicketsController],
   providers: [TicketsService],

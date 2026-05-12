@@ -1,4 +1,4 @@
-﻿import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+﻿import { Injectable, ConflictException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
@@ -10,6 +10,7 @@ import { BookTicketDto } from './dto/book-ticket.dto';
 import { SeatStatus, ShowtimeSeat } from './entities/showtime-seat.entity';
 import { Showtime } from './entities/showtime.entity';
 import { TICKET_QUEUE, PROCESS_BOOKING_JOB } from '../../infrastructure/queue/queue.constants';
+import { Ticket } from './entities/tickets.entity'; // 1. Import Ticket
 
 @Injectable()
 export class TicketsService {
@@ -18,8 +19,11 @@ export class TicketsService {
     private readonly showtimeSeatRepo: Repository<ShowtimeSeat>,
     @InjectRepository(Showtime)
     private readonly showtimeRepo: Repository<Showtime>,
+    @InjectRepository(Ticket)
+    private readonly ticketRepo: Repository<Ticket>,
     private readonly redisService: RedisService,
     @InjectQueue(TICKET_QUEUE) private ticketQueue: Queue,
+    
   ) {}
 
   // Run this function automatically every 1 minute
@@ -45,6 +49,19 @@ export class TicketsService {
         console.log(`Freed abandoned seat: ${seat.seatNumber} for show ${seat.showtimeId}`);
       }
     }
+  }
+
+  async releaseSeatLock(showtimeId: string, seatId: string) {
+    // 1. Delete the lock from Redis
+    await this.redisService.del(`lock:${showtimeId}:${seatId}`);
+    
+    // 2. Update the Postgres status back to AVAILABLE
+    await this.showtimeSeatRepo.update(
+      { showtimeId, seatNumber: seatId },
+      { status: SeatStatus.AVAILABLE }
+    );
+    
+    return { success: true };
   }
 
   private lockKey(showtimeId: string, seatId: string) {
@@ -171,5 +188,69 @@ export class TicketsService {
       soldSeats,
       heldSeats,
     };
+  }
+
+  // --- NEW: Finalize Purchase ---
+  async purchaseTickets(userId: string, showtimeId: string, seatIds: string[]) {
+    try {
+      if (!seatIds || !Array.isArray(seatIds)) {
+        throw new Error("seatIds is missing or not an array!");
+      }
+
+      // We will collect all the new tickets here to save them efficiently at the end
+      const ticketsToCreate: Ticket[] = [];
+
+      for (const seatId of seatIds) {
+        // 1. Fetch the exact seat so we know what type it is (Normal, VIP, Sweetbox)
+        const seat = await this.showtimeSeatRepo.findOne({
+          where: { showtimeId, seatNumber: seatId }
+        });
+
+        if (!seat) throw new Error(`Seat ${seatId} not found in database!`);
+
+        // 2. Determine the price based on the seat type (Matches your blueprint pricing)
+        let seatPrice = 15; // Fallback default
+        if (seat.type === 'vip') seatPrice = 40;
+        if (seat.type === 'sweetbox') seatPrice = 65;
+
+        // 3. Build the official Ticket object
+        ticketsToCreate.push(
+          this.ticketRepo.create({
+            userId: userId,
+            showtimeId: showtimeId,
+            seatId: seatId,
+            status: 'CONFIRMED',  // <--- perfectly matches your entity!
+            price: seatPrice
+          })
+        );
+
+        // 4. Update PostgreSQL Seat Status
+        await this.showtimeSeatRepo.update(
+          { showtimeId, seatNumber: seatId },
+          { status: SeatStatus.SOLD } 
+        );
+        
+        // 5. Clear Redis Lock
+        await this.redisService.del(`lock:${showtimeId}:${seatId}`);
+      }
+
+      // 6. Save all generated tickets to the database in one batch
+      if (ticketsToCreate.length > 0) {
+        await this.ticketRepo.save(ticketsToCreate);
+      }
+
+      // 7. Keep the Master Showtime counter in sync!
+      await this.showtimeRepo.decrement(
+        { id: showtimeId },
+        'availableSeats',
+        seatIds.length
+      );
+
+      return { success: true, message: 'Tickets successfully purchased!' };
+
+    } catch (error) {
+      console.error("🔥 CRASH IN PURCHASE ENDPOINT: ", error);
+      throw new InternalServerErrorException('Purchase failed: ' + error.message);
+    }
   }
 }

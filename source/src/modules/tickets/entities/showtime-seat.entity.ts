@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, Index, Unique, VersionColumn } from 'typeorm';
 
 export enum SeatStatus {
+  UNAVAILABLE = 'unavailable', // physically blocked seat (e.g., broken, social distancing)
   AVAILABLE = 'available',
   HELD = 'held',    // in someone's basket/Redis lock sequence
   SOLD = 'sold'     // ticket officially generated
@@ -41,4 +42,10 @@ export class ShowtimeSeat {
   // If you want a 4th layer of safety, TypeORM handles this automatically
   @VersionColumn()
   version: number;
+
+  @Column({ type: 'int', nullable: true })
+  rowNumber: number;
+
+  @Column({ type: 'int', nullable: true })
+  colNumber: number;
 }

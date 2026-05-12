@@ -39,4 +39,10 @@ export class Showtime {
 
   @Column({ default: 0 })
   availableSeats: number;
+
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
+  @Column({ type: 'text', nullable: true })
+  bannerImage: string;
 }

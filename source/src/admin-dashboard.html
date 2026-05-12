@@ -163,6 +163,9 @@
         }
 
         function renderTable(data) {
+            // Calculate percentage for the progress bar
+            const soldSeats = show.totalSeats - show.availableSeats;
+            const percentSold = show.totalSeats > 0 ? Math.round((soldSeats / show.totalSeats) * 100) : 0;
             const tbody = document.getElementById('showtime-table-body');
             tbody.innerHTML = '';
 
@@ -182,16 +185,16 @@
 
                 tbody.innerHTML += `
                     <tr>
-                        <td style="font-weight: bold;">${show.movieTitle}</td>
-                        <td>${show.hallName}</td>
-                        <td>${showDate.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</td>
-                        <td>${show.availableSeats} / ${show.totalSeats}</td>
-                        <td>${statusHtml}</td>
-                        <td>
-                            <button class="btn-secondary" onclick="alert('Viewing seats for ${show.id}')" title="View Seats"><i class="fa-solid fa-eye"></i></button>
-                            <button class="btn-danger" onclick="deleteShowtime('${show.id}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                        <td style="min-width: 150px;">
+                            <div style="font-weight: bold; color: #0f172a; margin-bottom: 6px;">
+                                ${soldSeats} / ${show.totalSeats} <span style="font-size: 11px; color: #64748b; font-weight: normal;">Sold</span>
+                            </div>
+                            <div style="width: 100%; background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${percentSold}%; background: #f59e0b; height: 100%; border-radius: 4px; transition: width 0.5s ease;"></div>
+                            </div>
                         </td>
-                    </tr>
+
+                        </tr>
                 `;
             });
         }
