@@ -1,0 +1,714 @@
+/*
+ * Derived from concur/source/src/seat-admin-test.html (<style id="base-styles">).
+ * Scoped under .cam-blueprint; grid cells use .bp-grid / .bp-seat-cell (not bare .seat).
+ */
+
+.cam-blueprint {
+  --surface: #ffffff;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --border: #e5e7eb;
+  --sidebar-bg: #0f172a;
+  color: var(--text-main);
+  font-size: 14px;
+  width: 100%;
+  min-height: 0;
+}
+
+.cam-blueprint .modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.cam-blueprint .modal-box {
+  background: var(--surface);
+  padding: 32px;
+  border-radius: 16px;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  text-align: left;
+  max-width: 450px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.cam-blueprint .modal-box.wide {
+  max-width: 800px;
+}
+
+.cam-blueprint button.cam-bp-btn.w-full {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cam-blueprint .cam-bp-modal-title {
+  margin: 0 0 24px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: flex-start;
+}
+
+.cam-blueprint .modal-lead {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+
+.cam-blueprint .modal-footer-actions,
+.cam-blueprint .modal-footer {
+  display: flex;
+  gap: 12px;
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.cam-blueprint .modal-footer-actions > .cam-bp-btn,
+.cam-blueprint .modal-footer > .cam-bp-btn {
+  flex: 1;
+}
+
+.cam-blueprint .bp-event-context {
+  width: 90%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.cam-blueprint .bp-event-context strong {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.cam-blueprint .bp-tool-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.cam-blueprint .bp-preview-box {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.cam-blueprint .toolbar .history-group .action-btn.danger:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.cam-blueprint .bp-modal-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.cam-blueprint .bp-modal-toolbar h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.cam-blueprint .bp-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.cam-blueprint .bp-icon-btn:hover {
+  background: #f1f5f9;
+  color: var(--text-main);
+}
+
+.cam-blueprint .bp-icon-btn i {
+  font-size: 18px;
+}
+
+.cam-blueprint .cam-bp-publish {
+  flex-shrink: 0;
+}
+
+.cam-blueprint .bp-inline-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cam-blueprint .bp-top-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  width: 90%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 0 8px;
+  font-size: 13px;
+}
+
+.cam-blueprint .bp-top-links a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cam-blueprint .bp-top-links a:hover {
+  color: var(--primary);
+}
+
+.cam-blueprint .modal-box h2.cam-bp-modal-title {
+  justify-content: flex-start;
+}
+
+.cam-blueprint .modal-box h2 {
+  margin: 0 0 24px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-main);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cam-blueprint .input-group {
+  margin-bottom: 16px;
+}
+
+.cam-blueprint .input-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cam-blueprint .input-group input,
+.cam-blueprint .input-group select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: 0.2s;
+  background: #f9fafb;
+}
+
+.cam-blueprint .input-group input:focus,
+.cam-blueprint .input-group select:focus {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.cam-blueprint .input-group input[type="color"] {
+  padding: 2px 4px;
+  height: 40px;
+  cursor: pointer;
+}
+
+.cam-blueprint button.cam-bp-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.cam-blueprint button.cam-bp-btn {
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.cam-blueprint .btn-primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+}
+
+.cam-blueprint .btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.cam-blueprint .btn-success {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+}
+
+.cam-blueprint .btn-success:hover {
+  background: #059669;
+}
+
+.cam-blueprint .btn-secondary {
+  background: var(--surface);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  padding: 10px 18px;
+  border-radius: 8px;
+}
+
+.cam-blueprint .btn-secondary:hover {
+  background: #f9fafb;
+}
+
+.cam-blueprint .table-container {
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.cam-blueprint .seat-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cam-blueprint .seat-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 11px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cam-blueprint .seat-table td {
+  padding: 14px 20px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.cam-blueprint .seat-table tr:hover {
+  background: #f8fafc;
+}
+
+.cam-blueprint .add-seat-form {
+  background: #f8fafc;
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+}
+
+.cam-blueprint .add-seat-form h3 {
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cam-blueprint .bp-seat-type-text-badge {
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.cam-blueprint .dashboard {
+  background: var(--surface);
+  width: 90%;
+  max-width: 1200px;
+  border-radius: 12px;
+  padding: 16px 24px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border);
+}
+
+.cam-blueprint .stat-group {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.cam-blueprint .stat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cam-blueprint .stat-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.cam-blueprint .revenue-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f0fdf4;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #bbf7d0;
+}
+
+.cam-blueprint .stat-total {
+  font-weight: 700;
+  font-size: 18px;
+  color: #15803d;
+}
+
+.cam-blueprint .admin-panel {
+  background: var(--surface);
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border);
+  margin-bottom: 24px;
+  width: 90%;
+  max-width: 1200px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.cam-blueprint .toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.cam-blueprint .tool-btn {
+  background: #f8fafc;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+}
+
+.cam-blueprint .tool-btn:hover {
+  background: #f1f5f9;
+  color: var(--text-main);
+}
+
+.cam-blueprint .tool-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.cam-blueprint .shortcut {
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 4px;
+  font-family: ui-monospace, monospace;
+}
+
+.cam-blueprint .tool-btn.active .shortcut {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.cam-blueprint .history-group {
+  display: flex;
+  gap: 4px;
+  border-right: 1px solid var(--border);
+  padding-right: 16px;
+  margin-right: 4px;
+}
+
+.cam-blueprint .action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cam-blueprint .action-btn:hover {
+  background: #f1f5f9;
+  color: var(--text-main);
+}
+
+.cam-blueprint .action-btn.danger:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.cam-blueprint .toolbar-divider {
+  margin-right: 12px;
+  border-right: 1px solid var(--border);
+  padding-right: 24px;
+}
+
+.cam-blueprint .toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cam-blueprint .bp-bulk-dynamic-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cam-blueprint .screen-container {
+  margin-bottom: 40px;
+  text-align: center;
+}
+
+.cam-blueprint .screen-bar {
+  height: 12px;
+  background: #cbd5e1;
+  border-radius: 50% / 100% 100% 0 0;
+  margin-bottom: 12px;
+}
+
+.cam-blueprint .screen-text {
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 8px;
+  font-size: 12px;
+}
+
+.cam-blueprint .grid-wrapper {
+  width: 90%;
+  max-width: 95vw;
+  overflow-x: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 60px;
+}
+
+.cam-blueprint .grid-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.cam-blueprint .row-labels {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cam-blueprint .row-label {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #94a3b8;
+  font-size: 12px;
+  width: 24px;
+}
+
+.cam-blueprint .bp-grid {
+  display: grid;
+  gap: 4px;
+  user-select: none;
+  background: var(--surface);
+  padding: 32px;
+  border-radius: 16px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.05),
+    0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--border);
+}
+
+.cam-blueprint .cell-slot {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  position: relative;
+}
+
+.cam-blueprint .bp-seat-cell {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: crosshair;
+  transition: transform 0.1s;
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.cam-blueprint .bp-seat-cell:hover {
+  transform: scale(1.15);
+  z-index: 10;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.cam-blueprint .cell-slot.bp-cell-blocked::before {
+  content: "";
+  position: absolute;
+  width: 140%;
+  height: 2px;
+  background: #ef4444;
+  transform: rotate(45deg);
+  top: 14px;
+  left: -6px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.cam-blueprint .cell-slot.bp-cell-blocked .bp-seat-cell {
+  opacity: 0.5;
+}
+
+.cam-blueprint .cell-slot.bp-cell-selected:not(.bp-cell-empty-slot) .bp-seat-cell {
+  outline: 3px solid var(--primary);
+  border-radius: 8px;
+  background: rgba(79, 70, 229, 0.12);
+}
+
+.cam-blueprint .bulk-panel {
+  background: var(--sidebar-bg);
+  color: white;
+  padding: 16px 32px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  gap: 16px;
+  position: fixed;
+  bottom: -120px;
+  left: 50%;
+  transform: translateX(-50%);
+  transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100;
+  font-size: 13px;
+  max-width: 95vw;
+  flex-wrap: wrap;
+  display: flex;
+}
+
+.cam-blueprint .bulk-panel.visible {
+  bottom: 32px;
+}
+
+.cam-blueprint .bulk-heading {
+  font-weight: 600;
+  margin-right: 16px;
+  color: #f8fafc;
+}
+
+.cam-blueprint .bulk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.cam-blueprint .bulk-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.cam-blueprint .bulk-btn.danger {
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+}
+
+.cam-blueprint .bulk-btn.danger:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.cam-blueprint .bulk-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 8px;
+}
+
+.cam-blueprint .bulk-spacer {
+  margin-left: auto;
+}
