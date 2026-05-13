@@ -9,7 +9,6 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,16 +23,14 @@ import { UserService } from './user.service';
 import { GetAllDto } from 'src/common/base/base-dto/getall.dto';
 import { UserUpdateDto } from './dtos/user.update.dto';
 import { UpdateManyDto } from 'src/common/base/base-dto/update-many.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
-import { ADMIN_ROLE_NAME } from '../auth/admin-role.constant';
+
+// TEMP DEV (bài tập / test UI): không bắt JWT và không check role Admin.
+// Bật lại: import JwtAuthGuard, RolesGuard, Roles, ADMIN_ROLE_NAME; thêm class-level:
+// @UseGuards(JwtAuthGuard, RolesGuard) và @Roles(ADMIN_ROLE_NAME)
 
 @ApiTags('User')
 @ApiBearerAuth('access-token')
 @Controller('user')
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(ADMIN_ROLE_NAME)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 

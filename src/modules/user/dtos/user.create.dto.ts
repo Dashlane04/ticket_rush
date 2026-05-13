@@ -25,10 +25,6 @@ export class UserCreateDto {
   @IsOptional()
   phone?: string;
 
-  @ApiProperty({ example: 'uuid-tenant' })
-  @IsUUID('4')
-  tenant: string;
-
   @ApiPropertyOptional({ example: ['uuid-role-1', 'uuid-role-2'] })
   @IsArray()
   @IsUUID('4', { each: true })

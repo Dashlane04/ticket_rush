@@ -13,6 +13,29 @@ import { RedisService } from 'src/redis/redis.service';
 import { UpdateManyDto } from 'src/common/base/base-dto/update-many.dto';
 import * as bcrypt from 'bcrypt';
 
+/** Chuẩn hoá boolean từ getRawMany/getRawOne (PG có thể trả boolean, 't'/'f', chuỗi). */
+function normalizeUserIsActive(value: unknown): boolean {
+  if (value === true || value === 1) return true;
+  if (value === false || value === 0 || value === null || value === undefined) {
+    return false;
+  }
+  if (typeof value === 'string') {
+    const s = value.trim().toLowerCase();
+    return s === 'true' || s === 't' || s === '1' || s === 'yes';
+  }
+  return false;
+}
+
+function mapRawUserListRow(row: Record<string, unknown>) {
+  return {
+    id: String(row.id),
+    name: row.name != null ? String(row.name) : null,
+    email: String(row.email),
+    phone: row.phone != null ? String(row.phone) : null,
+    is_active: normalizeUserIsActive(row.is_active),
+  };
+}
+
 export class UserRepository extends Repository<UserEntity> {
   constructor(
     @InjectRepository(UserEntity)
@@ -92,9 +115,7 @@ export class UserRepository extends Repository<UserEntity> {
         'user.phone as phone',
         'user.is_active as is_active',
       ])
-      .where('user.is_deleted = :is_deleted', { is_deleted: false })
-      .leftJoin('tenant', 't', 't.id = user.tenant')
-      .addSelect('t.name as university');
+      .where('user.is_deleted = :is_deleted', { is_deleted: false });
 
     if (query) {
       BaseSearch({ alias: 'user', qb, fields: ['name'], keyword: query });
@@ -112,14 +133,19 @@ export class UserRepository extends Repository<UserEntity> {
 
     qb.orderBy('user.created_at', sort === '1' ? 'DESC' : 'ASC');
 
-    const data = await qb.getRawMany();
+    const rawRows = await qb.getRawMany();
+    const data = rawRows.map((r) =>
+      mapRawUserListRow(r as Record<string, unknown>),
+    );
 
     return { total, page, size, data };
   }
 
   async findById(id: string) {
     const cached = await this.cacheService.get(`identity:user:${id}`);
-    if (cached) return cached;
+    if (cached) {
+      return mapRawUserListRow(cached as Record<string, unknown>);
+    }
 
     const user = await this.createQueryBuilder('user')
       .select([
@@ -131,17 +157,16 @@ export class UserRepository extends Repository<UserEntity> {
       ])
       .where('user.is_deleted = :is_deleted', { is_deleted: false })
       .andWhere('user.id = :id', { id })
-      .leftJoin('tenant', 't', 't.id = user.tenant')
-      .addSelect('t.name as university')
       .getRawOne();
 
     if (!user) {
       throw new NotFoundException(ErrorEnum.USER_NOT_FOUND);
     }
 
-    await this.cacheService.set(`identity:user:${id}`, user, 300);
+    const mapped = mapRawUserListRow(user as Record<string, unknown>);
+    await this.cacheService.set(`identity:user:${id}`, mapped, 300);
 
-    return user;
+    return mapped;
   }
 
   async findByEmail(email: string) {
@@ -192,7 +217,18 @@ export class UserRepository extends Repository<UserEntity> {
     await queryRunner.startTransaction();
 
     try {
-      const { roles = [], ...updateData } = data;
+      const { roles, password, ...restScalar } = data;
+
+      const patch: Record<string, unknown> = {};
+      for (const key of ['name', 'email', 'phone'] as const) {
+        const v = restScalar[key];
+        if (v !== undefined) {
+          patch[key] = v;
+        }
+      }
+      if (password !== undefined && password !== '') {
+        patch.password = await bcrypt.hash(password, 10);
+      }
 
       const rows = await queryRunner.manager
         .createQueryBuilder(UserEntity, 'user')
@@ -207,16 +243,22 @@ export class UserRepository extends Repository<UserEntity> {
       }
 
       const currentRoles = rows.map((item) => item.roles).filter(Boolean);
-      const currentSet = new Set(currentRoles);
-      const newSet = new Set(roles);
+      const tasks: Promise<unknown>[] = [];
 
-      const toAdd = roles.filter((item) => !currentSet.has(item));
-      const toRemove = currentRoles.filter((item) => !newSet.has(item));
+      if (roles !== undefined) {
+        const currentSet = new Set(currentRoles);
+        const toAdd = roles.filter((item) => !currentSet.has(item));
+        const toRemove = currentRoles.filter((item) => !roles.includes(item));
+        tasks.push(this.updateRelation(id, toAdd, toRemove, queryRunner));
+      }
 
-      await Promise.all([
-        this.updateRelation(id, toAdd, toRemove, queryRunner),
-        queryRunner.manager.update(UserEntity, { id }, updateData),
-      ]);
+      if (Object.keys(patch).length > 0) {
+        tasks.push(queryRunner.manager.update(UserEntity, { id }, patch));
+      }
+
+      if (tasks.length > 0) {
+        await Promise.all(tasks);
+      }
 
       await queryRunner.commitTransaction();
       await this.cacheService.del(`identity:user:${id}`);

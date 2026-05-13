@@ -1,12 +1,21 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { JwtAuthGuard } from './jwt-auth.guard';
 import { LoginDto } from './dtos/login.dtos';
 import { RegisterDto } from './dtos/signup.dtos';
 import { RefreshTokenDto } from './dtos/refresh-token.dto';
-import { JwtAuthGuard } from './jwt-auth.guard';
+import type { Request } from 'express';
 
-type AuthedRequest = {
+/** `req.user` được gán bởi JwtAuthGuard + JwtStrategy (Bearer bắt buộc cho BFF Next). */
+type AuthedRequest = Request & {
   user: {
     id: string;
     email: string;
@@ -23,13 +32,17 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Thông tin user hiện tại (JWT)' })
+  @ApiOperation({
+    summary:
+      'Thông tin user (JWT Bearer) — được Next /api/auth/login|register gọi sau khi đổi token',
+  })
   me(@Req() req: AuthedRequest) {
+    const u = req.user;
     return {
-      id: req.user.id,
-      email: req.user.email,
-      tenant_id: req.user.tenant_id,
-      roles: req.user.roles ?? [],
+      id: u.id,
+      email: u.email,
+      tenant_id: u.tenant_id,
+      roles: u.roles ?? [],
     };
   }
 
