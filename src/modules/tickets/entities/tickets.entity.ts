@@ -32,6 +32,9 @@ export class Ticket {
   @Column('jsonb', { nullable: true })
   metadata: any;
 
+  @Column({ nullable: true })
+  qrCodeUrl: string;
+
   @CreateDateColumn()
   createdAt: Date;
 }

@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { UserCreateDto } from './dtos/user.create.dto';
 import { GetAllDto } from 'src/common/base/base-dto/getall.dto';
 import { BaseSearch } from 'src/common/base/base-search/base-search';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { ErrorEnum } from 'src/common/enum/error.enum';
 import { UserUpdateDto } from './dtos/user.update.dto';
 import { QueryRunner } from 'typeorm';
@@ -12,6 +12,8 @@ import { UserRoleEntity } from '../role/entity/user-role.entity';
 import { RedisService } from 'src/redis/redis.service';
 import { UpdateManyDto } from 'src/common/base/base-dto/update-many.dto';
 import * as bcrypt from 'bcrypt';
+import { Ticket } from 'src/modules/tickets/entities/tickets.entity';
+import { Showtime } from 'src/modules/tickets/entities/showtime.entity';
 
 /** Chuẩn hoá boolean từ getRawMany/getRawOne (PG có thể trả boolean, 't'/'f', chuỗi). */
 function normalizeUserIsActive(value: unknown): boolean {
@@ -32,6 +34,8 @@ function mapRawUserListRow(row: Record<string, unknown>) {
     name: row.name != null ? String(row.name) : null,
     email: String(row.email),
     phone: row.phone != null ? String(row.phone) : null,
+    gender: row.gender != null ? String(row.gender) : null,
+    date_of_birth: row.date_of_birth != null ? new Date(row.date_of_birth as string).toISOString() : null,
     is_active: normalizeUserIsActive(row.is_active),
   };
 }
@@ -113,12 +117,14 @@ export class UserRepository extends Repository<UserEntity> {
         'user.name as name',
         'user.email as email',
         'user.phone as phone',
+        'user.gender as gender',
+        'user.date_of_birth as date_of_birth',
         'user.is_active as is_active',
       ])
       .where('user.is_deleted = :is_deleted', { is_deleted: false });
 
     if (query) {
-      BaseSearch({ alias: 'user', qb, fields: ['name'], keyword: query });
+      BaseSearch({ alias: 'user', qb, fields: ['name', 'email', 'phone'], keyword: query });
     }
 
     if (is_active !== null && is_active !== undefined) {
@@ -153,6 +159,8 @@ export class UserRepository extends Repository<UserEntity> {
         'user.name as name',
         'user.email as email',
         'user.phone as phone',
+        'user.gender as gender',
+        'user.date_of_birth as date_of_birth',
         'user.is_active as is_active',
       ])
       .where('user.is_deleted = :is_deleted', { is_deleted: false })
@@ -217,7 +225,7 @@ export class UserRepository extends Repository<UserEntity> {
     await queryRunner.startTransaction();
 
     try {
-      const { roles, password, ...restScalar } = data;
+      const { roles, password, gender, date_of_birth, ...restScalar } = data;
 
       const patch: Record<string, unknown> = {};
       for (const key of ['name', 'email', 'phone'] as const) {
@@ -225,6 +233,12 @@ export class UserRepository extends Repository<UserEntity> {
         if (v !== undefined) {
           patch[key] = v;
         }
+      }
+      if (gender !== undefined) {
+        patch.gender = gender;
+      }
+      if (date_of_birth !== undefined) {
+        patch.date_of_birth = new Date(date_of_birth);
       }
       if (password !== undefined && password !== '') {
         patch.password = await bcrypt.hash(password, 10);
@@ -264,13 +278,103 @@ export class UserRepository extends Repository<UserEntity> {
       await this.cacheService.del(`identity:user:${id}`);
 
       return { id };
-    } catch (error) {
+    } catch (error: any) {
       if (queryRunner.isTransactionActive) {
         await queryRunner.rollbackTransaction();
       }
-      throw error;
+      if (error.code === '23505') {
+        throw new BadRequestException('Email hoặc số điện thoại này đã được sử dụng bởi tài khoản khác.');
+      }
+      throw new InternalServerErrorException(error.message || String(error));
     } finally {
       await queryRunner.release();
     }
+  }
+  async getUserTelemetry(userId: string) {
+    let age: number | null = null;
+    try {
+      const user = await this.findById(userId);
+      if (user.date_of_birth) {
+        const dob = new Date(user.date_of_birth);
+        const diffMs = Date.now() - dob.getTime();
+        const ageDt = new Date(diffMs);
+        age = Math.abs(ageDt.getUTCFullYear() - 1970);
+      }
+    } catch (err) {
+      console.error('[getUserTelemetry] Error fetching user:', err);
+    }
+
+    let totalPurchases = 0;
+    let totalSpent = 0;
+    let avgTicketPrice = 0;
+    let lastPurchaseDate: string | null = null;
+    let sortedPreferences: { name: string; count: number }[] = [];
+    let purchaseHistory: { month: string; count: number; spent: number }[] = [];
+
+    try {
+      const ticketRepo = this.dataSource.getRepository(Ticket);
+      const showtimeRepo = this.dataSource.getRepository(Showtime);
+
+      const tickets = await ticketRepo.find({
+        where: { userId },
+        order: { createdAt: 'DESC' },
+      });
+
+      const showtimeIds = [...new Set(tickets.map((t) => t.showtimeId))];
+      const showtimes =
+        showtimeIds.length > 0
+          ? await showtimeRepo.findBy({ id: In(showtimeIds) })
+          : [];
+      const showtimeMap = new Map(showtimes.map((s) => [s.id, s]));
+
+      const categoryCounts: Record<string, number> = {};
+      const monthlyData: Record<string, { count: number; spent: number }> = {};
+
+      for (const t of tickets) {
+        const price = parseFloat(String(t.price)) || 0;
+        totalPurchases += 1;
+        totalSpent += price;
+
+        const showtime = showtimeMap.get(t.showtimeId);
+        const cat = showtime?.category || 'Khác';
+        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+
+        // Group by month for purchase history chart
+        const d = new Date(t.createdAt);
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = { count: 0, spent: 0 };
+        }
+        monthlyData[monthKey].count += 1;
+        monthlyData[monthKey].spent += price;
+      }
+
+      if (tickets.length > 0) {
+        avgTicketPrice = totalSpent / totalPurchases;
+        lastPurchaseDate = tickets[0].createdAt.toISOString();
+      }
+
+      sortedPreferences = Object.entries(categoryCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, count]) => ({ name, count }));
+
+      // Sort months chronologically, keep last 6
+      purchaseHistory = Object.entries(monthlyData)
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .slice(-6)
+        .map(([month, data]) => ({ month, ...data }));
+    } catch (err) {
+      console.error('[getUserTelemetry] Error querying tickets:', err);
+    }
+
+    return {
+      age,
+      totalPurchases,
+      totalSpent,
+      avgTicketPrice,
+      lastPurchaseDate,
+      preferences: sortedPreferences,
+      purchaseHistory,
+    };
   }
 }

@@ -1,18 +1,62 @@
-import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards, Req } from '@nestjs/common';
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { RolesGuard } from '../../auth/roles.guard';
+import { Roles } from '../../auth/roles.decorator';
+import { ADMIN_ROLE_NAME } from '../../auth/admin-role.constant';
 
 import { AdminService } from './admin.service';
 import { CreateShowtimeDto } from './dto/create-showtime.dto';
 import { SaveSeatTemplateDto } from './dto/save-seat-template.dto';
 import { UpdateShowtimeDto } from './dto/update-showtime.dto';
+import { Request } from 'express';
+interface RequestWithUser extends Request {
+  user: {
+    id: string;
+    email: string;
+    tenant_id: string;
+    roles: string[];
+  };
+}
 
 @Controller('admin')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(ADMIN_ROLE_NAME)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
-  @Post('showtime')
-  async createShowtime(@Body() body: CreateShowtimeDto) {
-    return await this.adminService.createShowtime(body);
+  @Get('ping-auth')
+  async pingAuth(@Req() req: RequestWithUser) {
+    const cookieHeader = req.headers?.cookie;
+    let extracted: string | null = null;
+    if (cookieHeader) {
+      const cookies = cookieHeader.split(';').map((c: string) => c.trim());
+      const accessCookie = cookies.find((c: string) => c.startsWith('access_token='));
+      if (accessCookie) extracted = accessCookie.substring('access_token='.length);
+    }
+    return {
+      cookieHeader,
+      extracted,
+      user: req.user,
+    };
   }
+
+  /** Promo Codes */
+  @Post('promo-codes')
+  async createPromoCode(@Body() body: { code: string; discountPercent: number; maxUses?: number; validUntil?: string }) {
+    return this.adminService.createPromoCode(body);
+  }
+
+  @Get('promo-codes')
+  async getPromoCodes() {
+    return this.adminService.listPromoCodes();
+  }
+
+  @Delete('promo-codes/:id')
+  async deletePromoCode(@Param('id') id: string) {
+    return this.adminService.deletePromoCode(id);
+  }
+
+  /** REST aliases: same payloads as `showtime/*` (one showtime = one event in the app). */
 
   @Post('seat-template')
   async saveSeatTemplate(@Body() body: SaveSeatTemplateDto) {
@@ -37,52 +81,10 @@ export class AdminController {
     return this.adminService.replaceSeatTemplate(id, body);
   }
 
-  @Post('showtime/:id/apply-template')
-  async applyTemplateToShowtime(
-    @Param('id') showtimeId: string,
-    @Body() body: { templateId: string },
-  ) {
-    return await this.adminService.applyTemplateToShowtime(
-      showtimeId,
-      body.templateId,
-    );
-  }
-
   @Delete('seat-template/:id')
   async deleteSeatTemplate(@Param('id') id: string) {
     return this.adminService.deleteSeatTemplate(id);
   }
-
-  @Get('showtimes')
-  async getShowtimes() {
-    return await this.adminService.getShowtimes();
-  }
-
-  @Get('showtime/:id')
-  async getShowtime(@Param('id') id: string) {
-    return await this.adminService.getShowtimeById(id);
-  }
-
-  @Put('showtime/:id')
-  async updateShowtime(@Param('id') id: string, @Body() body: UpdateShowtimeDto) {
-    return await this.adminService.updateShowtime(id, body);
-  }
-
-  @Delete('showtime/:id')
-  async deleteShowtime(@Param('id') id: string) {
-    return this.adminService.deleteShowtime(id);
-  }
-
-  @Post('showtime/:showtimeId/seat/:seatId/override')
-  async overrideSeatStatus(
-    @Param('showtimeId') showtimeId: string,
-    @Param('seatId') seatId: string,
-    @Body('status') status: string,
-  ) {
-    return this.adminService.overrideSeatStatus(showtimeId, seatId, status);
-  }
-
-  /** REST aliases: same payloads as `showtime/*` (one showtime = one event in the app). */
   @Get('events')
   async getEvents() {
     return await this.adminService.getShowtimes();
@@ -129,5 +131,20 @@ export class AdminController {
     @Body('status') status: string,
   ) {
     return this.adminService.overrideSeatStatus(showtimeId, seatId, status);
+  }
+
+  @Get('live-users')
+  async getLiveUsers() {
+    return this.adminService.getLiveUsersCount();
+  }
+
+  @Get('users/stats')
+  async getUserStats() {
+    return this.adminService.getUserStats();
+  }
+
+  @Get('purchase-stats')
+  async getPurchaseStats() {
+    return this.adminService.getPurchaseStats();
   }
 }

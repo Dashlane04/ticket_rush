@@ -21,6 +21,7 @@ import { BookTicketDto } from './dto/book-ticket.dto';
 import { SeatStatus, ShowtimeSeat } from './entities/showtime-seat.entity';
 import { Showtime } from './entities/showtime.entity';
 import { Ticket } from './entities/tickets.entity';
+import { PromoCode } from './entities/promo-code.entity';
 
 @Injectable()
 export class TicketsService {
@@ -31,6 +32,8 @@ export class TicketsService {
     private readonly showtimeRepo: Repository<Showtime>,
     @InjectRepository(Ticket)
     private readonly ticketRepo: Repository<Ticket>,
+    @InjectRepository(PromoCode)
+    private readonly promoCodeRepo: Repository<PromoCode>,
     private readonly redisService: RedisService,
     @InjectQueue(TICKET_QUEUE) private ticketQueue: Queue,
   ) {}
@@ -180,6 +183,9 @@ export class TicketsService {
           section: seat.section,
           type: seat.type,
           status,
+          rowNumber: seat.rowNumber,
+          colNumber: seat.colNumber,
+          price: seat.price,
         };
       }),
     );
@@ -257,6 +263,7 @@ export class TicketsService {
       status: t.status,
       price: t.price,
       createdAt: t.createdAt,
+      qrCodeUrl: t.qrCodeUrl,
       showtime: byId.get(t.showtimeId) ?? null,
     }));
   }
@@ -279,17 +286,42 @@ export class TicketsService {
       status: ticket.status,
       price: ticket.price,
       createdAt: ticket.createdAt,
+      qrCodeUrl: ticket.qrCodeUrl,
       showtime: showtime ?? null,
     };
   }
 
-  async purchaseTickets(userId: string, showtimeId: string, seatIds: string[]) {
+  async validatePromoCode(code: string) {
+    const codeUpper = code.toUpperCase();
+    const promo = await this.promoCodeRepo.findOne({ where: { code: codeUpper } });
+    if (!promo) throw new NotFoundException('Promo code not found');
+    if (!promo.isActive) throw new ConflictException('Promo code is inactive');
+    if (promo.validUntil && new Date() > promo.validUntil) throw new ConflictException('Promo code expired');
+    if (promo.maxUses && promo.currentUses >= promo.maxUses) throw new ConflictException('Promo code usage limit reached');
+    return { discountPercent: promo.discountPercent };
+  }
+
+  async purchaseTickets(userId: string, showtimeId: string, seatIds: string[], promoCode?: string) {
     try {
       if (!seatIds || !Array.isArray(seatIds)) {
         throw new Error('seatIds is missing or not an array!');
       }
 
       const ticketsToCreate: Ticket[] = [];
+      let discountPercent = 0;
+      let appliedPromo: PromoCode | null = null;
+
+      if (promoCode) {
+        const codeUpper = promoCode.toUpperCase();
+        appliedPromo = await this.promoCodeRepo.findOne({ where: { code: codeUpper } });
+        if (appliedPromo && appliedPromo.isActive && 
+           (!appliedPromo.validUntil || new Date() <= appliedPromo.validUntil) && 
+           (!appliedPromo.maxUses || appliedPromo.currentUses < appliedPromo.maxUses)) {
+          discountPercent = appliedPromo.discountPercent;
+        } else {
+          throw new ConflictException('Invalid or expired promo code');
+        }
+      }
 
       for (const seatId of seatIds) {
         const seat = await this.showtimeSeatRepo.findOne({
@@ -311,9 +343,10 @@ export class TicketsService {
           );
         }
 
-        let seatPrice = 15;
-        if (seat.type === 'vip') seatPrice = 40;
-        if (seat.type === 'sweetbox') seatPrice = 65;
+        let seatPrice = seat.price ?? 15.0;
+        if (discountPercent > 0) {
+          seatPrice = seatPrice * (1 - discountPercent / 100);
+        }
 
         ticketsToCreate.push(
           this.ticketRepo.create({
@@ -334,7 +367,15 @@ export class TicketsService {
       }
 
       if (ticketsToCreate.length > 0) {
-        await this.ticketRepo.save(ticketsToCreate);
+        const savedTickets = await this.ticketRepo.save(ticketsToCreate);
+        for (const t of savedTickets) {
+          t.qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`TicketRush:${t.id.toUpperCase()}`)}`;
+        }
+        await this.ticketRepo.save(savedTickets);
+      }
+
+      if (appliedPromo) {
+        await this.promoCodeRepo.increment({ id: appliedPromo.id }, 'currentUses', 1);
       }
 
       await this.showtimeRepo.decrement(
@@ -491,5 +532,10 @@ export class TicketsService {
     }
 
     return { success: true, message: 'Locks released successfully.' };
+  }
+
+  async recordPing(sessionId: string) {
+    await this.redisService.zAddOverwrite('active_users', Date.now(), sessionId);
+    return { success: true };
   }
 }

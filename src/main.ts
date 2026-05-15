@@ -17,6 +17,8 @@ async function bootstrap() {
     }),
   );
 
+  app.setGlobalPrefix('api');
+
   const configEarly = app.get(ConfigService);
   const rawOrigins = configEarly.get<string>('FRONTEND_ORIGIN');
   const parsed =

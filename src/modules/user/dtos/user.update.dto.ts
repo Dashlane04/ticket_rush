@@ -10,4 +10,14 @@ export class UserUpdateDto extends PartialType(
   @IsOptional()
   @IsString()
   password?: string;
+
+  @ApiPropertyOptional({ example: 'MALE', enum: ['MALE', 'FEMALE', 'OTHER'] })
+  @IsOptional()
+  @IsString()
+  gender?: string;
+
+  @ApiPropertyOptional({ example: '2000-01-15T00:00:00.000Z' })
+  @IsOptional()
+  @IsString()
+  date_of_birth?: string;
 }

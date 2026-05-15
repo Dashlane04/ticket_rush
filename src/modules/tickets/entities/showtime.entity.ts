@@ -41,6 +41,9 @@ export class Showtime {
   @Column({ type: 'text', nullable: true })
   description: string;
 
+  @Column({ default: 8 })
+  maxSeatsPerBooking: number;
+
   @Column({ type: 'text', nullable: true })
   bannerImage: string;
 

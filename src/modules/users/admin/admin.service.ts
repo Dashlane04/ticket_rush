@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { DataSource, DeepPartial } from 'typeorm';
+import { DataSource, DeepPartial, Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 
 import { ShowtimeSeat, SeatStatus } from 'src/modules/tickets/entities/showtime-seat.entity';
 import type { SeatType } from 'src/modules/tickets/entities/showtime-seat.entity';
 import { SeatTemplate } from 'src/modules/tickets/entities/template-seat.entity';
+import { PromoCode } from 'src/modules/tickets/entities/promo-code.entity';
 import { RedisService } from 'src/redis/redis.service';
 
 import { CreateShowtimeDto } from './dto/create-showtime.dto';
@@ -19,8 +21,34 @@ export class AdminService {
     private readonly dataSource: DataSource,
     private readonly showtimeRepo: AdminShowtimeRepository,
     private readonly templateRepo: AdminSeatTemplateRepository,
+    @InjectRepository(PromoCode)
+    private readonly promoCodeRepo: Repository<PromoCode>,
     private readonly redisService: RedisService,
   ) {}
+
+  async createPromoCode(data: { code: string; discountPercent: number; maxUses?: number; validUntil?: string }) {
+    const code = data.code.toUpperCase();
+    const existing = await this.promoCodeRepo.findOne({ where: { code } });
+    if (existing) throw new Error('Promo code already exists');
+    
+    const promo = this.promoCodeRepo.create({
+      code,
+      discountPercent: data.discountPercent,
+      maxUses: data.maxUses,
+      validUntil: data.validUntil ? new Date(data.validUntil) : null,
+    });
+    return this.promoCodeRepo.save(promo);
+  }
+
+  async listPromoCodes() {
+    return this.promoCodeRepo.find({ order: { createdAt: 'DESC' } });
+  }
+
+  async deletePromoCode(id: string) {
+    const promo = await this.promoCodeRepo.findOne({ where: { id } });
+    if (!promo) throw new NotFoundException('Promo code not found');
+    return this.promoCodeRepo.remove(promo);
+  }
 
   async createShowtime(dto: CreateShowtimeDto) {
     return await this.dataSource.transaction(async (manager) => {
@@ -47,6 +75,7 @@ export class AdminService {
         ticketSaleOpensAt,
         totalSeats,
         availableSeats: totalSeats,
+        maxSeatsPerBooking: dto.maxSeatsPerBooking ?? 8,
       });
     });
   }
@@ -66,6 +95,7 @@ export class AdminService {
         colNumber: seat.gridCol,
         type: seat.type,
         isBlocked: seat.isBlocked,
+        price: (dto.seatConfiguration as Record<string, { price?: number }>)?.[seat.type]?.price ?? 15.0,
       }));
 
       await this.templateRepo.insertMany(manager, seats);
@@ -128,6 +158,7 @@ export class AdminService {
         colNumber: seat.gridCol,
         type: seat.type,
         isBlocked: seat.isBlocked,
+        price: (dto.seatConfiguration as Record<string, { price?: number }>)?.[seat.type]?.price ?? 15.0,
       }));
 
       await this.templateRepo.insertMany(manager, seats);
@@ -153,6 +184,7 @@ export class AdminService {
       section: 'center' as const,
       rowNumber: ts.rowNumber,
       colNumber: ts.colNumber,
+      price: ts.price,
     }));
 
     const showtimeSeatsToInsert = this.showtimeRepo.createSeatBatch(
@@ -212,6 +244,9 @@ export class AdminService {
       const v = dto.ticketSaleOpensAt?.trim() ?? '';
       showtime.ticketSaleOpensAt = v === '' ? null : new Date(v);
     }
+    if (dto.maxSeatsPerBooking !== undefined) {
+      showtime.maxSeatsPerBooking = dto.maxSeatsPerBooking;
+    }
 
     return this.showtimeRepo.save(showtime);
   }
@@ -246,5 +281,164 @@ export class AdminService {
     }
 
     return { success: true, seatId, newStatus };
+  }
+
+  async getLiveUsersCount() {
+    const minScore = Date.now() - 30000;
+    const maxScore = Date.now();
+    // Prune old users first
+    await this.redisService.zRemRangeByScore('active_users', 0, minScore - 1).catch(() => {});
+    const active = await this.redisService.zRangeByScore('active_users', minScore, maxScore);
+    return { count: active.length };
+  }
+
+  async getUserStats() {
+    // 1. Gender distribution
+    const genderRows = await this.dataSource.query(`
+      SELECT gender, COUNT(id) as count
+      FROM "user"
+      WHERE is_deleted = false
+      GROUP BY gender
+    `);
+    const gender = genderRows.map((row: any) => ({
+      name: row.gender || 'UNKNOWN',
+      count: parseInt(row.count, 10),
+    }));
+
+    // 2. Age demographics
+    const ageRows = await this.dataSource.query(`
+      SELECT 
+        CASE 
+          WHEN age < 18 THEN '<18'
+          WHEN age >= 18 AND age <= 24 THEN '18-24'
+          WHEN age >= 25 AND age <= 34 THEN '25-34'
+          WHEN age >= 35 AND age <= 44 THEN '35-44'
+          WHEN age >= 45 THEN '45+'
+          ELSE 'Unknown'
+        END as age_group,
+        COUNT(*) as count
+      FROM (
+        SELECT EXTRACT(YEAR FROM age(CURRENT_DATE, date_of_birth)) as age
+        FROM "user"
+        WHERE date_of_birth IS NOT NULL AND is_deleted = false
+      ) as ages
+      GROUP BY age_group
+    `);
+    
+    // Fill missing buckets with 0
+    const ageBuckets = { '<18': 0, '18-24': 0, '25-34': 0, '35-44': 0, '45+': 0, 'Unknown': 0 };
+    for (const row of ageRows) {
+      ageBuckets[row.age_group as keyof typeof ageBuckets] = parseInt(row.count, 10);
+    }
+    const age = Object.entries(ageBuckets).map(([name, count]) => ({ name, count }));
+
+    // 3. Favorite Genres
+    const genreRows = await this.dataSource.query(`
+      SELECT s.category, COUNT(t.id) as count
+      FROM tickets t
+      INNER JOIN showtimes s ON t."showtimeId"::uuid = s.id
+      WHERE t.status = 'CONFIRMED'
+      GROUP BY s.category
+      ORDER BY count DESC
+      LIMIT 5
+    `);
+    const genres = genreRows.map((row: any) => ({
+      name: row.category || 'Khác',
+      count: parseInt(row.count, 10),
+    }));
+
+    return { gender, age, genres };
+  }
+
+  async getPurchaseStats() {
+    // 1. Revenue & Volume over time (last 30 days, grouped by date)
+    const dailyRows = await this.dataSource.query(`
+      SELECT
+        DATE("createdAt") as date,
+        COUNT(id) as ticket_count,
+        COALESCE(SUM(price), 0) as revenue
+      FROM tickets
+      WHERE status = 'CONFIRMED'
+        AND "createdAt" >= CURRENT_DATE - INTERVAL '30 days'
+      GROUP BY DATE("createdAt")
+      ORDER BY date ASC
+    `);
+    const dailyRevenue = dailyRows.map((r: any) => ({
+      date: r.date,
+      tickets: parseInt(r.ticket_count, 10),
+      revenue: parseFloat(r.revenue),
+    }));
+
+    // 2. Monthly trend (last 6 months)
+    const monthlyRows = await this.dataSource.query(`
+      SELECT
+        TO_CHAR("createdAt", 'YYYY-MM') as month,
+        COUNT(id) as ticket_count,
+        COALESCE(SUM(price), 0) as revenue
+      FROM tickets
+      WHERE status = 'CONFIRMED'
+        AND "createdAt" >= CURRENT_DATE - INTERVAL '6 months'
+      GROUP BY TO_CHAR("createdAt", 'YYYY-MM')
+      ORDER BY month ASC
+    `);
+    const monthlyRevenue = monthlyRows.map((r: any) => ({
+      month: r.month,
+      tickets: parseInt(r.ticket_count, 10),
+      revenue: parseFloat(r.revenue),
+    }));
+
+    // 3. Revenue by category (pie chart)
+    const catRows = await this.dataSource.query(`
+      SELECT s.category, COALESCE(SUM(t.price), 0) as revenue, COUNT(t.id) as count
+      FROM tickets t
+      INNER JOIN showtimes s ON t."showtimeId"::uuid = s.id
+      WHERE t.status = 'CONFIRMED'
+      GROUP BY s.category
+      ORDER BY revenue DESC
+    `);
+    const revenueByCategory = catRows.map((r: any) => ({
+      name: r.category || 'Khác',
+      revenue: parseFloat(r.revenue),
+      count: parseInt(r.count, 10),
+    }));
+
+    // 4. Top 5 events by revenue
+    const topRows = await this.dataSource.query(`
+      SELECT s."movieTitle" as title, s.category,
+        COUNT(t.id) as tickets_sold,
+        COALESCE(SUM(t.price), 0) as revenue
+      FROM tickets t
+      INNER JOIN showtimes s ON t."showtimeId"::uuid = s.id
+      WHERE t.status = 'CONFIRMED'
+      GROUP BY s.id, s."movieTitle", s.category
+      ORDER BY revenue DESC
+      LIMIT 5
+    `);
+    const topEvents = topRows.map((r: any) => ({
+      title: r.title,
+      category: r.category || 'Khác',
+      ticketsSold: parseInt(r.tickets_sold, 10),
+      revenue: parseFloat(r.revenue),
+    }));
+
+    // 5. Overall KPIs
+    const kpiRows = await this.dataSource.query(`
+      SELECT
+        COUNT(id) as total_tickets,
+        COALESCE(SUM(price), 0) as total_revenue,
+        COALESCE(AVG(price), 0) as avg_price,
+        COUNT(DISTINCT "userId") as unique_buyers
+      FROM tickets
+      WHERE status = 'CONFIRMED'
+    `);
+    const kpi = kpiRows[0] || {};
+    const overview = {
+      totalTickets: parseInt(kpi.total_tickets ?? '0', 10),
+      totalRevenue: parseFloat(kpi.total_revenue ?? '0'),
+      avgTicketPrice: parseFloat(kpi.avg_price ?? '0'),
+      uniqueBuyers: parseInt(kpi.unique_buyers ?? '0', 10),
+    };
+
+    return { dailyRevenue, monthlyRevenue, revenueByCategory, topEvents, overview };
   }
 }

@@ -1,4 +1,4 @@
-import { IsDateString, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsOptional, IsString, IsNumber } from 'class-validator';
 
 /** Payload từ frontend admin khi sửa showtime (không đổi lưới ghế). */
 export class UpdateShowtimeDto {
@@ -33,4 +33,8 @@ export class UpdateShowtimeDto {
   @IsOptional()
   @IsString()
   ageRating?: string;
+
+  @IsOptional()
+  @IsNumber()
+  maxSeatsPerBooking?: number;
 }

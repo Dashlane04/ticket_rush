@@ -135,4 +135,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async zAddOverwrite(key: string, score: number, member: string) {
     return this.client.zadd(key, score, member);
   }
+
+  async zRemRangeByScore(key: string, min: number, max: number) {
+    return this.client.zremrangebyscore(key, min, max);
+  }
 }

@@ -60,6 +60,11 @@ export class CreateShowtimeDto {
   @IsString()
   category?: string;
 
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  maxSeatsPerBooking?: number;
+
   @IsOptional()
   @Transform(({ value }) => (value === '' || value === null || value === undefined ? undefined : value))
   @IsDateString()

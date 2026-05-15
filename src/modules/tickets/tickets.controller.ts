@@ -41,6 +41,21 @@ export class TicketsController {
     return await this.ticketsService.getShowtimeById(showtimeId);
   }
 
+  @Get('my-history')
+  @UseGuards(JwtAuthGuard)
+  async getMyTickets(@Req() req: AuthedRequest) {
+    return await this.ticketsService.getTicketsForUser(req.user.id);
+  }
+
+  @Get('my-history/:ticketId')
+  @UseGuards(JwtAuthGuard)
+  async getMyTicket(
+    @Req() req: AuthedRequest,
+    @Param('ticketId') ticketId: string,
+  ) {
+    return await this.ticketsService.getTicketForUser(req.user.id, ticketId);
+  }
+
   @Get('user/:userId')
   async getTicketsForUser(@Param('userId') userId: string) {
     return await this.ticketsService.getTicketsForUser(userId);
@@ -66,16 +81,22 @@ export class TicketsController {
     return this.ticketsService.releaseSeatLock(body.showtimeId, body.seatId);
   }
 
+  @Post('validate-promo')
+  async validatePromo(@Body() body: { code: string }) {
+    return this.ticketsService.validatePromoCode(body.code);
+  }
+
   @Post('purchase')
   @UseGuards(JwtAuthGuard)
   async purchaseTickets(
     @Req() req: AuthedRequest,
-    @Body() body: { showtimeId: string; seatIds: string[] },
+    @Body() body: { showtimeId: string; seatIds: string[]; promoCode?: string },
   ) {
     return this.ticketsService.purchaseTickets(
       req.user.id,
       body.showtimeId,
       body.seatIds,
+      body.promoCode,
     );
   }
 
@@ -114,5 +135,11 @@ export class TicketsController {
       body.seatIds,
       req.user.id,
     );
+  }
+
+  @Post('ping')
+  async ping(@Body() body: { sessionId: string }) {
+    if (!body.sessionId) return { success: false };
+    return this.ticketsService.recordPing(body.sessionId);
   }
 }

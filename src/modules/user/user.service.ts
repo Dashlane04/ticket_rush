@@ -36,4 +36,8 @@ export class UserService {
   async updateUser(id: string, data: UserUpdateDto) {
     return await this.userRepository.updateUser(id, data);
   }
+
+  async getUserTelemetry(id: string) {
+    return await this.userRepository.getUserTelemetry(id);
+  }
 }

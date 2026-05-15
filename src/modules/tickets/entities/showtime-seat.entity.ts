@@ -39,8 +39,11 @@ export class ShowtimeSeat {
   @Column()
   section: 'left' | 'center' | 'right';
 
-  @Column()
-  type: 'normal' | 'vip' | 'sweetbox';
+  @Column({ type: 'varchar' })
+  type: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 15.0 })
+  price: number;
 
   @Column({ type: 'varchar', nullable: true })
   userId: string | null;

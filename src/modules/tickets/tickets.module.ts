@@ -9,6 +9,7 @@ import { BookingTransaction } from './entities/transaction.entity';
 import { Showtime } from './entities/showtime.entity';
 import { ShowtimeSeat } from './entities/showtime-seat.entity';
 import { Ticket } from './entities/tickets.entity';
+import { PromoCode } from './entities/promo-code.entity';
 import { TicketsController } from './tickets.controller';
 import { TicketsService } from './tickets.service';
 
@@ -16,7 +17,7 @@ import { TicketsService } from './tickets.service';
 @Module({
   imports: [
     AuthModule,
-    TypeOrmModule.forFeature([Showtime, ShowtimeSeat, Ticket, BookingTransaction]),
+    TypeOrmModule.forFeature([Showtime, ShowtimeSeat, Ticket, BookingTransaction, PromoCode]),
     BullModule.registerQueue({ name: TICKET_QUEUE }),
     TypeOrmModule.forFeature([ShowtimeSeat, Ticket]),
     QueueModule,

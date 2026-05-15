@@ -28,4 +28,7 @@ export class SeatTemplate {
 
   @Column({ default: false })
   isBlocked: boolean;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 15.0 })
+  price: number;
 }
