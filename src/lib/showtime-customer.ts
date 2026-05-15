@@ -18,6 +18,7 @@ export type ShowtimeApiPayload = {
   bannerImage?: string | null;
   category?: string | null;
   ticketSaleOpensAt?: string | null;
+  maxSeatsPerBooking?: number;
 };
 
 const GRADIENTS = [
@@ -36,7 +37,7 @@ function gradientForId(id: string): string {
 }
 
 function isProbablyUrl(s: string): boolean {
-  return /^https?:\/\//i.test(s.trim()) || s.trim().startsWith("/");
+  return /^https?:\/\//i.test(s.trim()) || s.trim().startsWith("/") || s.trim().startsWith("data:");
 }
 
 export function showtimeSaleState(
@@ -74,7 +75,7 @@ export function mapShowtimeToEventCard(s: ShowtimeApiPayload) {
     image: imageClass,
     imageUrl,
     description: (s.description ?? "").trim(),
-    priceFrom: "—",
+    priceFrom: "$15.00",
     category: (s.category ?? "").trim() || "Khác",
   };
 }

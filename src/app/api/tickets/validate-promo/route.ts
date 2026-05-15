@@ -5,26 +5,27 @@ import { COOKIE_ACCESS, accessCookieOptions } from "@/lib/auth-cookie-settings";
 
 export async function POST(req: Request) {
   const resolved = await resolveAccessTokenFromCookies();
-  if (!resolved.ok) {
-    return NextResponse.json({ message: "Cần đăng nhập để thanh toán." }, { status: 401 });
-  }
-
+  // Validating promo code might not strictly require auth, but since the flow is authed, we can pass it if available.
+  // Actually, the NestJS route we created is just `@Post('validate-promo')` without `@UseGuards(JwtAuthGuard)`.
+  
   const raw = (await req.json().catch(() => ({}))) as Record<string, unknown>;
-  const showtimeId = raw.showtimeId;
-  const seatIds = raw.seatIds;
-  const promoCode = raw.promoCode;
-  if (typeof showtimeId !== "string" || !Array.isArray(seatIds)) {
-    return NextResponse.json({ message: "showtimeId và seatIds là bắt buộc." }, { status: 400 });
+  const code = raw.code;
+  if (typeof code !== "string" || !code) {
+    return NextResponse.json({ message: "code is required." }, { status: 400 });
   }
 
   const upstream = upstreamAuthBase();
-  const nestRes = await fetch(`${upstream}/tickets/purchase`, {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (resolved.ok) {
+    headers["Authorization"] = `Bearer ${resolved.token}`;
+  }
+
+  const nestRes = await fetch(`${upstream}/tickets/validate-promo`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${resolved.token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ showtimeId, seatIds, promoCode }),
+    headers,
+    body: JSON.stringify({ code }),
   });
 
   const payload = await nestRes.json().catch(() => ({}));

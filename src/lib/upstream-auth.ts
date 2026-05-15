@@ -4,5 +4,5 @@ export function upstreamAuthBase(): string {
     process.env.TICKET_RUSH_API_URL ??
     process.env.NEXT_PUBLIC_TICKET_RUSH_API_URL ??
     "http://localhost:3000"
-  );
+  ).replace(/\/$/, "") + "/api";
 }

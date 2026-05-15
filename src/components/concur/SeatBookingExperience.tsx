@@ -16,6 +16,7 @@ import {
 } from "@/lib/concur/seat-grid-utils";
 import "@/styles/concur-booking.css";
 import { useAuthStore } from "@/stores/auth-store";
+import { getOrCreateTabUserId } from "@/lib/concur/tab-user-id";
 
 async function ticketBffPost(path: string, body: Record<string, unknown>) {
   return fetch(path, {
@@ -26,20 +27,17 @@ async function ticketBffPost(path: string, body: Record<string, unknown>) {
   });
 }
 
-function seatPriceForType(type: string): number {
-  if (type === "vip") return 40;
-  if (type === "sweetbox") return 65;
-  return 15;
-}
+
 
 type SeatBookingExperienceProps = {
   showtimeId: string;
   displayTitle?: string;
   /** e.g. `Hall A • May 6, 2026, 1:59 PM` (prototype header subtitle). */
   eventMetaLine?: string;
+  maxSeatsPerBooking?: number;
 };
 
-export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine }: SeatBookingExperienceProps) {
+export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine, maxSeatsPerBooking }: SeatBookingExperienceProps) {
   const router = useRouter();
   const pathname = usePathname();
   const hydrated = useAuthStore((s) => s.hydrated);
@@ -58,6 +56,15 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
   const [txnId, setTxnId] = useState("--");
   const [loaderOpen, setLoaderOpen] = useState(false);
   const [loaderText, setLoaderText] = useState("Processing...");
+
+  const [queueState, setQueueState] = useState<"idle" | "joining" | "waiting" | "entered" | "error">("idle");
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
+  const queueIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedPromoCode, setAppliedPromoCode] = useState<string | null>(null);
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [promoLoading, setPromoLoading] = useState(false);
 
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -110,16 +117,98 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
   }, [showtimeId]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/immutability -- stable handler ref for seat polling interval
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     pollSeatStatusRef.current = pollSeatStatus;
   }, [pollSeatStatus]);
 
+  const clearQueuePolling = useCallback(() => {
+    if (queueIntervalRef.current) {
+      clearInterval(queueIntervalRef.current);
+      queueIntervalRef.current = null;
+    }
+  }, []);
+
+  const leaveQueue = useCallback(async () => {
+    try {
+      await nestFetch(`tickets/${showtimeId}/queue/leave`, {
+        method: "POST",
+        body: JSON.stringify({ userId: getOrCreateTabUserId() }),
+      });
+    } catch {
+      // ignore
+    }
+  }, [showtimeId]);
+
   useEffect(() => {
-    void pollSeatStatus();
+    const joinQueue = async () => {
+      setQueueState("joining");
+      try {
+        const res = await nestFetch(`tickets/${showtimeId}/queue/join`, {
+          method: "POST",
+          body: JSON.stringify({ userId: getOrCreateTabUserId() }),
+        });
+        if (!res.ok) throw new Error("Join queue failed");
+        const data = (await res.json()) as { status: string; position?: number };
+
+        if (data.status === "ENTER") {
+          setQueueState("entered");
+          void pollSeatStatus();
+        } else if (data.status === "WAIT") {
+          setQueueState("waiting");
+          setQueuePosition(data.position || 0);
+        } else {
+          setQueueState("error");
+        }
+      } catch {
+        setQueueState("error");
+      }
+    };
+
+    void joinQueue();
+
     return () => {
+      clearQueuePolling();
+      void leaveQueue();
       clearPolling();
     };
-  }, [clearPolling, pollSeatStatus]);
+  }, [showtimeId, pollSeatStatus, leaveQueue, clearQueuePolling, clearPolling]);
+
+  useEffect(() => {
+    if (queueState !== "waiting" && queueState !== "entered") {
+      clearQueuePolling();
+      return;
+    }
+
+    const checkStatus = async () => {
+      try {
+        const res = await nestFetch(
+          `tickets/${showtimeId}/queue/status/${encodeURIComponent(getOrCreateTabUserId())}`,
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as { status: string; position?: number };
+
+        if (data.status === "ENTER") {
+          setQueueState((prev) => {
+            if (prev !== "entered") {
+              void pollSeatStatus();
+              return "entered";
+            }
+            return prev;
+          });
+        } else if (data.status === "WAIT") {
+          setQueueState("waiting");
+          setQueuePosition(data.position || 0);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    queueIntervalRef.current = setInterval(() => {
+      void checkStatus();
+    }, 3000);
+    return () => clearQueuePolling();
+  }, [queueState, showtimeId, pollSeatStatus, clearQueuePolling]);
 
   const seatByPos = useMemo(() => {
     const m = new Map<string, ParsedSeat>();
@@ -172,7 +261,7 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
     return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(`TicketRush:${txnId}`)}`;
   }, [txnId]);
 
-  const handleSeatClick = useCallback((seatNumber: string, status: string, type: string) => {
+  const handleSeatClick = useCallback((seatNumber: string, status: string, type: string, price?: number) => {
     if (status === "sold" || status === "held" || status === "unavailable" || status === "broken") return;
 
     setSelectedSeats((prev) => {
@@ -180,23 +269,34 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
       if (next.has(seatNumber)) {
         next.delete(seatNumber);
       } else {
-        if (next.size >= 8) {
-          toast.warning("Maximum 8 seats per transaction.");
+        const limit = maxSeatsPerBooking ?? 8;
+        if (next.size >= limit) {
+          toast.warning(`Maximum ${limit} seats per transaction.`);
           return prev;
         }
-        next.set(seatNumber, { price: seatPriceForType(type) });
+        let p = price ?? 15;
+        if (p < 1000) p = p * 25000;
+        next.set(seatNumber, { price: p });
       }
       return next;
     });
   }, []);
 
+  const availableSeatsCount = useMemo(() => seatRows.filter(s => s.status === "available").length, [seatRows]);
+  const isSoldOut = seatRows.length > 0 && availableSeatsCount === 0;
+
   const totalPrice = useMemo(() => {
     let t = 0;
     selectedSeats.forEach((s) => {
-      t += s.price;
+      t += Number(s.price);
     });
     return t;
   }, [selectedSeats]);
+
+  const discountedPrice = useMemo(() => {
+    if (promoDiscount === 0) return totalPrice;
+    return totalPrice * (1 - promoDiscount / 100);
+  }, [totalPrice, promoDiscount]);
 
   const initiateCheckout = async () => {
     if (selectedSeats.size === 0) return;
@@ -263,7 +363,29 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
     setLocallyLockedSeats(new Set());
     setLocksAcquired(false);
     locksAcquiredRef.current = false;
+    setPromoInput("");
+    setAppliedPromoCode(null);
+    setPromoDiscount(0);
     void pollSeatStatus();
+  };
+
+  const applyPromo = async () => {
+    if (!promoInput.trim()) return;
+    setPromoLoading(true);
+    try {
+      const res = await ticketBffPost("/api/tickets/validate-promo", { code: promoInput.trim() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Invalid promo code");
+      setPromoDiscount(data.discountPercent);
+      setAppliedPromoCode(promoInput.trim());
+      toast.success(`Applied ${data.discountPercent}% discount!`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Invalid promo code");
+      setPromoDiscount(0);
+      setAppliedPromoCode(null);
+    } finally {
+      setPromoLoading(false);
+    }
   };
 
   const finalizePurchase = async () => {
@@ -275,6 +397,7 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
       const res = await ticketBffPost("/api/tickets/purchase", {
         showtimeId,
         seatIds: seatIdsToPurchase,
+        promoCode: appliedPromoCode,
       });
 
       if (res.status === 401) {
@@ -320,6 +443,67 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
     <div className="concur-booking-root">
       <style dangerouslySetInnerHTML={{ __html: dynamicCss }} />
 
+      {queueState === "joining" || queueState === "waiting" || queueState === "error" ? (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 transition-all">
+          <div className="relative overflow-hidden w-full max-w-sm bg-white dark:bg-slate-900/95 border border-slate-200/50 dark:border-slate-700/50 rounded-3xl shadow-2xl p-8 text-center">
+            
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-1/2 bg-rose-500/20 blur-3xl rounded-full -z-10 pointer-events-none" />
+
+            {queueState === "joining" && (
+              <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
+                <div className="relative flex items-center justify-center w-16 h-16 mb-6">
+                  <div className="absolute inset-0 rounded-full border-2 border-slate-100 dark:border-slate-800" />
+                  <div className="absolute inset-0 rounded-full border-2 border-rose-500 border-t-transparent animate-spin" />
+                  <i className="fa-solid fa-ticket text-rose-500 text-lg" aria-hidden />
+                </div>
+                <h3 className="text-xl font-medium tracking-tight text-slate-900 dark:text-white">Connecting...</h3>
+                <p className="text-sm text-slate-500 mt-2">Checking ticket availability</p>
+              </div>
+            )}
+            
+            {queueState === "waiting" && (
+              <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
+                <div className="relative flex items-center justify-center w-20 h-20 mb-6">
+                  <div className="absolute inset-0 rounded-full border-2 border-rose-500/20 animate-ping" />
+                  <div className="absolute inset-2 rounded-full border-2 border-rose-500 border-t-transparent animate-spin" />
+                  <i className="fa-solid fa-user-clock text-rose-500 text-2xl" aria-hidden />
+                </div>
+                
+                <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">You are in line</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed px-2">
+                  Due to high demand, you have been placed in a virtual queue. Please keep this page open.
+                </p>
+                
+                <div className="w-full bg-slate-50/50 dark:bg-slate-800/40 rounded-2xl p-5 border border-slate-100 dark:border-slate-700/50 shadow-inner">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1 block">Your Position</span>
+                  <div className="text-5xl font-black text-rose-500 tracking-tighter" style={{ fontFeatureSettings: '"tnum"' }}>
+                    {queuePosition !== null ? queuePosition : "—"}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {queueState === "error" && (
+              <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
+                <div className="flex items-center justify-center w-16 h-16 rounded-full bg-rose-100 dark:bg-rose-500/10 mb-6">
+                  <i className="fa-solid fa-triangle-exclamation text-rose-600 dark:text-rose-400 text-2xl" aria-hidden />
+                </div>
+                <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">Connection Error</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 px-2">
+                  We couldn't connect you to the queue.
+                </p>
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 rounded-xl h-12 font-medium"
+                >
+                  Thử lại
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+
       <div className="cb-container">
         <div className="cb-header">
           <h1>
@@ -332,7 +516,19 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
           </div>
         </div>
 
-        <div className="cb-main">
+        <div className="cb-main relative">
+          {isSoldOut && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-[2px] rounded-2xl m-4 border border-rose-500/20">
+              <div className="bg-rose-500/10 text-rose-500 rounded-full px-6 py-2 mb-4 border border-rose-500/20 uppercase tracking-widest font-bold text-sm">
+                Sold Out
+              </div>
+              <h2 className="text-3xl font-bold text-white mb-2 text-center px-4">Đã Hết Vé</h2>
+              <p className="text-slate-300 text-center max-w-sm px-4">
+                Tất cả ghế cho suất chiếu này đã được đặt. Vui lòng chọn suất chiếu khác.
+              </p>
+            </div>
+          )}
+
           <div className="cb-screen-curve">
             <span>SCREEN</span>
           </div>
@@ -363,7 +559,7 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
                           variant="ghost"
                           data-seat-type={seat.type}
                           className={cn(cls, "h-auto min-h-0 w-auto shrink-0 rounded-none border-0 p-0 shadow-none hover:bg-transparent")}
-                          onClick={() => handleSeatClick(seat.seatNumber, seat.status, seat.type)}
+                          onClick={() => handleSeatClick(seat.seatNumber, seat.status, seat.type, seat.price)}
                         >
                           {showNum}
                         </Button>
@@ -385,7 +581,7 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
             Selected:{" "}
             <span style={{ fontWeight: 600, color: "var(--text-main)" }}>{selectedSeats.size}</span>
             <span style={{ margin: "0 15px", color: "var(--border)" }}>|</span>
-            Total: <strong>${totalPrice}</strong>
+            Total: <strong>{totalPrice.toLocaleString("vi-VN", { style: "currency", currency: "VND" })}</strong>
           </div>
           <Button
             type="button"
@@ -395,7 +591,7 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
             title={hydrated && !user ? "Đăng nhập để thanh toán" : undefined}
             onClick={() => void initiateCheckout()}
           >
-            Proceed to Checkout
+            Thanh toán ngay
           </Button>
           {hydrated && !user ? (
             <p className="mt-2 text-center text-sm text-amber-800 dark:text-amber-200/90">
@@ -422,8 +618,35 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
                 <strong>{Array.from(selectedSeats.keys()).join(", ") || "--"}</strong>
               </div>
               <div className="cb-receipt-row cb-total">
-                <span>Total Price:</span> <span style={{ color: "#166534" }}>${totalPrice}</span>
+                <span>Total Price:</span> 
+                <span style={{ color: "#166534" }}>
+                  {promoDiscount > 0 && (
+                    <span className="text-slate-400 line-through mr-2 text-sm font-normal">
+                      {totalPrice.toLocaleString("vi-VN", { style: "currency", currency: "VND" })}
+                    </span>
+                  )}
+                  {discountedPrice.toLocaleString("vi-VN", { style: "currency", currency: "VND" })}
+                </span>
               </div>
+            </div>
+
+            <div className="mb-6 flex gap-2">
+              <input
+                type="text"
+                placeholder="Enter promo code"
+                value={promoInput}
+                onChange={(e) => setPromoInput(e.target.value)}
+                disabled={promoDiscount > 0 || promoLoading}
+                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 uppercase text-slate-900"
+              />
+              <Button
+                type="button"
+                disabled={!promoInput || promoDiscount > 0 || promoLoading}
+                onClick={() => void applyPromo()}
+                className="bg-slate-900 text-white hover:bg-slate-800 rounded-lg px-6"
+              >
+                {promoLoading ? "..." : promoDiscount > 0 ? "Applied" : "Apply"}
+              </Button>
             </div>
 
             <div style={{ display: "flex", gap: 10 }}>
@@ -434,7 +657,7 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
                 style={{ background: "#f1f5f9", color: "var(--text-main)", flex: 1 }}
                 onClick={() => void cancelCheckout()}
               >
-                Cancel
+                Hủy bỏ
               </Button>
               <Button
                 type="button"
@@ -444,7 +667,7 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
                 onClick={() => void finalizePurchase()}
               >
                 <i className="fa-regular fa-credit-card mr-1" aria-hidden />
-                Confirm & Pay
+                Xác nhận & Thanh toán
               </Button>
             </div>
           </div>
@@ -479,7 +702,7 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine 
               style={{ marginTop: 20 }}
               onClick={() => window.location.reload()}
             >
-              Back to Home
+              Về trang chủ
             </Button>
           </div>
         </div>

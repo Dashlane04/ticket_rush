@@ -2,6 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Calendar, MapPin, Ticket } from "lucide-react";
 import { fetchShowtimeByIdFromBackend, mapShowtimeToEventCard, showtimeSaleState } from "@/lib/showtime-customer";
+import BookingButton from "@/components/home/BookingButton";
+
+import type { Metadata } from "next";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const st = await fetchShowtimeByIdFromBackend(id);
+  if (!st) return { title: "Không tìm thấy sự kiện" };
+  return { title: st.movieTitle };
+}
 
 export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -87,13 +97,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
           <div className="pt-4 flex flex-col sm:flex-row gap-3">
             {canBook ?
-              <Link
-                href={`/booking/${event.id}`}
-                className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-full transition-colors shadow-lg shadow-rose-600/25"
-              >
-                <Ticket className="h-5 w-5" />
-                Chọn ghế &amp; mua vé
-              </Link>
+              <BookingButton eventId={event.id} />
             : saleState === "locked" ?
               <span className="inline-flex items-center justify-center px-8 py-3.5 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 font-semibold cursor-not-allowed border border-amber-200 dark:border-amber-800">
                 Vé chưa mở bán

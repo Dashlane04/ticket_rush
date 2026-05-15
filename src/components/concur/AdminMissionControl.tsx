@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AdminSeatTemplatesTable, type AdminSeatTemplateRow } from "@/components/concur/AdminSeatTemplatesTable";
 import { nestFetch } from "@/lib/nest-api";
@@ -41,6 +41,7 @@ export type AdminEvent = {
   ticketSaleOpensAt?: string | null;
   projectionType?: string;
   ageRating?: string;
+  maxSeatsPerBooking?: number;
 };
 
 const PROJECTION_OPTIONS = ["2D", "3D", "IMAX"] as const;
@@ -63,6 +64,8 @@ export function AdminMissionControl() {
   const [hallFilter, setHallFilter] = useState("all");
   const [liveUsers, setLiveUsers] = useState(0);
 
+  const [activeTab, setActiveTab] = useState<"events" | "promos">("events");
+
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -72,11 +75,12 @@ export function AdminMissionControl() {
   const [createBannerFile, setCreateBannerFile] = useState<File | null>(null);
   const [createStart, setCreateStart] = useState("");
   const [createDuration, setCreateDuration] = useState("120");
-  const [createCategory, setCreateCategory] = useState("Khác");
+  const [createCategory, setCreateCategory] = useState<string>("Phim chiếu rạp");
   const [createTicketSaleOpens, setCreateTicketSaleOpens] = useState("");
   const [createProjectionType, setCreateProjectionType] = useState("2D");
   const [createAgeRating, setCreateAgeRating] = useState("T16");
   const [createTemplateId, setCreateTemplateId] = useState("");
+  const [createMaxSeats, setCreateMaxSeats] = useState("8");
   const [templateOptions, setTemplateOptions] = useState<AdminSeatTemplateRow[]>([]);
   const [createSaving, setCreateSaving] = useState(false);
 
@@ -85,10 +89,11 @@ export function AdminMissionControl() {
   const [editDescription, setEditDescription] = useState("");
   const [editBannerFile, setEditBannerFile] = useState<File | null>(null);
   const [editStart, setEditStart] = useState("");
-  const [editCategory, setEditCategory] = useState("Khác");
+  const [editCategory, setEditCategory] = useState<string>("Phim chiếu rạp");
   const [editTicketSaleOpens, setEditTicketSaleOpens] = useState("");
   const [editProjectionType, setEditProjectionType] = useState("2D");
   const [editAgeRating, setEditAgeRating] = useState("T16");
+  const [editMaxSeats, setEditMaxSeats] = useState("8");
   const [editSaving, setEditSaving] = useState(false);
 
   const [monitorOpen, setMonitorOpen] = useState(false);
@@ -107,6 +112,15 @@ export function AdminMissionControl() {
   const [overrideSeatId, setOverrideSeatId] = useState("");
   const [overrideBusy, setOverrideBusy] = useState(false);
 
+  const [promos, setPromos] = useState<any[]>([]);
+  const [promosLoading, setPromosLoading] = useState(false);
+  const [createPromoOpen, setCreatePromoOpen] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoDiscount, setPromoDiscount] = useState("10");
+  const [promoMaxUses, setPromoMaxUses] = useState("");
+  const [promoValidUntil, setPromoValidUntil] = useState("");
+  const [promoSaving, setPromoSaving] = useState(false);
+
   const fetchEvents = useCallback(async () => {
     try {
       const res = await nestFetch("admin/events");
@@ -120,24 +134,92 @@ export function AdminMissionControl() {
     }
   }, []);
 
+  const fetchPromos = useCallback(async () => {
+    try {
+      setPromosLoading(true);
+      const res = await nestFetch("admin/promo-codes");
+      if (res.ok) {
+        setPromos(await res.json());
+      }
+    } catch {
+      // ignore
+    } finally {
+      setPromosLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const id = requestAnimationFrame(() => {
       void fetchEvents();
+      void fetchPromos();
     });
     return () => cancelAnimationFrame(id);
-  }, [fetchEvents]);
+  }, [fetchEvents, fetchPromos]);
+
+  const executeCreatePromo = async () => {
+    if (!promoCode || !promoDiscount) return toast.error("Missing required fields");
+    setPromoSaving(true);
+    try {
+      const payload: { code: string; discountPercent: number; maxUses?: number; validUntil?: string } = {
+        code: promoCode,
+        discountPercent: parseInt(promoDiscount, 10),
+      };
+      if (promoMaxUses) payload.maxUses = parseInt(promoMaxUses, 10);
+      if (promoValidUntil) payload.validUntil = new Date(promoValidUntil).toISOString();
+
+      const res = await nestFetch("admin/promo-codes", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to create promo");
+      toast.success("Promo code created!");
+      setCreatePromoOpen(false);
+      setPromoCode("");
+      setPromoDiscount("10");
+      setPromoMaxUses("");
+      setPromoValidUntil("");
+      await fetchPromos();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setPromoSaving(false);
+    }
+  };
+
+  const executeDeletePromo = async (id: string) => {
+    if (!confirm("Delete this promo code?")) return;
+    try {
+      const res = await nestFetch(`admin/promo-codes/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      toast.success("Deleted promo code");
+      await fetchPromos();
+    } catch {
+      toast.error("Error deleting promo code");
+    }
+  };
 
   useEffect(() => {
-    if (allEvents.length === 0) return;
-    const tick = () => {
-      const base = Math.floor(allEvents.length * 2.5);
-      const jitter = Math.floor(Math.random() * 5) - 2;
-      setLiveUsers(Math.max(0, base + jitter));
+    let cancelled = false;
+    const fetchLiveUsers = async () => {
+      try {
+        const res = await nestFetch("admin/live-users");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && typeof data.count === "number") {
+          setLiveUsers(data.count);
+        }
+      } catch {
+        // ignore
+      }
     };
-    tick();
-    const id = setInterval(tick, 3000);
-    return () => clearInterval(id);
-  }, [allEvents]);
+
+    fetchLiveUsers();
+    const id = setInterval(fetchLiveUsers, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
 
   const stats = useMemo(() => {
     let totalCapacity = 0;
@@ -213,7 +295,7 @@ export function AdminMissionControl() {
       const templates = (await res.json()) as AdminSeatTemplateRow[];
       setTemplateOptions(templates);
       setCreateTemplateId("");
-      setCreateCategory("Khác");
+      setCreateCategory("Phim chiếu rạp");
       setCreateTicketSaleOpens("");
       setCreateProjectionType("2D");
       setCreateAgeRating("T16");
@@ -248,12 +330,11 @@ export function AdminMissionControl() {
         rows: templateData.dimensions.rows,
         cols: templateData.dimensions.columns,
         category: createCategory,
-        projectionType: createProjectionType,
+        ticketSaleOpensAt: createTicketSaleOpens.trim() || undefined,
+        projectionType: createCategory === "Phim chiếu rạp" ? createProjectionType : undefined,
         ageRating: createAgeRating,
+        maxSeatsPerBooking: parseInt(createMaxSeats, 10),
       };
-      if (createTicketSaleOpens.trim()) {
-        body.ticketSaleOpensAt = new Date(createTicketSaleOpens).toISOString();
-      }
 
       const createRes = await nestFetch("admin/events", {
         method: "POST",
@@ -275,10 +356,11 @@ export function AdminMissionControl() {
       setCreateTitle("");
       setCreateDescription("");
       setCreateBannerFile(null);
-      setCreateCategory("Khác");
+      setCreateCategory(EVENT_ASSIGNABLE_CATEGORIES[0]);
       setCreateTicketSaleOpens("");
       setCreateProjectionType("2D");
       setCreateAgeRating("T16");
+      setCreateMaxSeats("8");
       await fetchEvents();
     } catch {
       toast.error("Error creating event.");
@@ -297,9 +379,10 @@ export function AdminMissionControl() {
     date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
     setEditStart(date.toISOString().slice(0, 16));
     setEditBannerFile(null);
-    setEditCategory(show.category ?? "Khác");
+    setEditCategory(show.category ?? EVENT_ASSIGNABLE_CATEGORIES[0]);
     setEditProjectionType(show.projectionType ?? "2D");
     setEditAgeRating(show.ageRating ?? "T16");
+    setEditMaxSeats(show.maxSeatsPerBooking?.toString() ?? "8");
     if (show.ticketSaleOpensAt) {
       const d = new Date(show.ticketSaleOpensAt);
       if (!Number.isNaN(d.getTime())) {
@@ -323,10 +406,11 @@ export function AdminMissionControl() {
           description: editDescription,
           startTime: new Date(editStart).toISOString(),
           category: editCategory,
-          projectionType: editProjectionType,
+          projectionType: editCategory === "Phim chiếu rạp" ? editProjectionType : undefined,
           ageRating: editAgeRating,
+          maxSeatsPerBooking: parseInt(editMaxSeats, 10),
+          ...(bannerBase64 ? { bannerImage: bannerBase64 } : {}),
           ticketSaleOpensAt: editTicketSaleOpens.trim() ? new Date(editTicketSaleOpens).toISOString() : "",
-          ...(bannerBase64 && { bannerImage: bannerBase64 }),
         }),
       });
 
@@ -482,26 +566,47 @@ export function AdminMissionControl() {
           </div>
           <div className="stat-details">
             <h3>Live Users</h3>
-            <p>{allEvents.length === 0 ? 0 : liveUsers}</p>
+            <p>{liveUsers}</p>
           </div>
         </div>
       </div>
 
       <div className="header-actions">
-        <h2>Event management</h2>
-        <div className="header-actions-btns">
-          <Button type="button" onClick={() => setTemplatesOpen(true)} className="btn-secondary gap-2">
-            <i className="fa-solid fa-map" aria-hidden />
-            Manage Templates
-          </Button>
-          <Button type="button" onClick={() => void openCreateModal()} className="btn-primary gap-2">
-            <i className="fa-solid fa-plus" aria-hidden />
-            Schedule new event
-          </Button>
+        <div className="flex gap-4 border-b border-slate-200 dark:border-slate-800 pb-2 mb-4 w-full">
+          <button
+            type="button"
+            className={cn("px-4 py-2 font-medium text-sm rounded-t-lg transition-colors border-b-2", activeTab === "events" ? "border-rose-500 text-rose-600 dark:text-rose-400" : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300")}
+            onClick={() => setActiveTab("events")}
+          >
+            Events
+          </button>
+          <button
+            type="button"
+            className={cn("px-4 py-2 font-medium text-sm rounded-t-lg transition-colors border-b-2", activeTab === "promos" ? "border-rose-500 text-rose-600 dark:text-rose-400" : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300")}
+            onClick={() => setActiveTab("promos")}
+          >
+            Promo Codes
+          </button>
         </div>
       </div>
 
-      <div className="controls">
+      {activeTab === "events" && (
+        <>
+          <div className="header-actions">
+            <h2>Event management</h2>
+            <div className="header-actions-btns">
+              <Button type="button" onClick={() => setTemplatesOpen(true)} className="btn-secondary gap-2">
+                <i className="fa-solid fa-map" aria-hidden />
+                Manage Templates
+              </Button>
+              <Button type="button" onClick={() => void openCreateModal()} className="btn-primary gap-2">
+                <i className="fa-solid fa-plus" aria-hidden />
+                Schedule new event
+              </Button>
+            </div>
+          </div>
+
+          <div className="controls">
         <div className="search-box">
           <i className="fa-solid fa-magnifying-glass search-icon" aria-hidden />
           <Input
@@ -638,7 +743,7 @@ export function AdminMissionControl() {
         </table>
       </div>
 
-      {!loadError ? (
+      {!loadError && (
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500 dark:text-slate-400 px-1 pt-3">
           <span>
             {filteredTotal} sự kiện · Trang {clampedPage + 1}/{pageCount}
@@ -670,6 +775,122 @@ export function AdminMissionControl() {
             >
               Sau
             </Button>
+          </div>
+        </div>
+      )}
+        </>
+      )}
+
+      {activeTab === "promos" && (
+        <>
+          <div className="header-actions">
+            <h2>Manage Promo Codes</h2>
+            <div className="header-actions-btns">
+              <Button type="button" onClick={() => setCreatePromoOpen(true)} className="btn-primary gap-2">
+                <i className="fa-solid fa-plus" aria-hidden />
+                Create Promo Code
+              </Button>
+            </div>
+          </div>
+          <div className="table-container">
+            <table className="showtime-table">
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left" }}>Code</th>
+                  <th style={{ textAlign: "left" }}>Discount</th>
+                  <th style={{ textAlign: "left" }}>Usage</th>
+                  <th style={{ textAlign: "left" }}>Valid Until</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {promosLoading ? (
+                  <tr>
+                    <td colSpan={5} className="cell-muted">Loading promos...</td>
+                  </tr>
+                ) : promos.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="cell-muted">No promo codes found. Click &quot;Create Promo Code&quot; to add one.</td>
+                  </tr>
+                ) : (
+                  promos.map((p) => (
+                    <tr key={p.id}>
+                      <td>
+                        <span
+                          style={{
+                            fontFamily: "monospace",
+                            fontWeight: 700,
+                            fontSize: 13,
+                            letterSpacing: "0.05em",
+                            background: "var(--surface, #f1f5f9)",
+                            border: "1px solid var(--border, #e2e8f0)",
+                            borderRadius: 6,
+                            padding: "2px 8px",
+                            color: "var(--primary, #e11d48)",
+                          }}
+                        >
+                          {p.code}
+                        </span>
+                        {!p.isActive && <span style={{ marginLeft: 8, fontSize: 11, color: "#f43f5e" }}>(Inactive)</span>}
+                      </td>
+                      <td style={{ fontWeight: 600 }}>{p.discountPercent}%</td>
+                      <td>
+                        <span style={{ fontWeight: 500 }}>{p.currentUses}</span>
+                        <span style={{ color: "#94a3b8" }}> / {p.maxUses ? p.maxUses : "∞"}</span>
+                      </td>
+                      <td>
+                        {p.validUntil
+                          ? new Date(p.validUntil).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+                          : <span style={{ color: "#94a3b8" }}>Never</span>}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => void executeDeletePromo(p.id)}
+                          className="action-btn delete h-auto w-auto shrink-0 p-0 shadow-none border-0 hover:bg-transparent"
+                        >
+                          <i className="fa-solid fa-trash" aria-hidden />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {createPromoOpen ? (
+        <div className="modal-overlay" style={{ zIndex: 1000 }}>
+          <div className="modal-box" style={{ width: "100%", maxWidth: 400 }}>
+            <h2>Create Promo Code</h2>
+            <div className="form-group">
+              <Label htmlFor="promo-code">Code</Label>
+              <Input id="promo-code" type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())} placeholder="e.g. SUMMER50" className="uppercase" />
+            </div>
+            <div className="form-group">
+              <Label htmlFor="promo-discount">Discount Percent (%)</Label>
+              <Input id="promo-discount" type="number" min="1" max="100" value={promoDiscount} onChange={(e) => setPromoDiscount(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <Label htmlFor="promo-maxUses">Max Uses (Optional)</Label>
+              <Input id="promo-maxUses" type="number" min="1" value={promoMaxUses} onChange={(e) => setPromoMaxUses(e.target.value)} placeholder="Leave blank for infinite" />
+            </div>
+            <div className="form-group">
+              <Label htmlFor="promo-valid">Valid Until (Optional)</Label>
+              <Input id="promo-valid" type="date" value={promoValidUntil} onChange={(e) => setPromoValidUntil(e.target.value)} />
+            </div>
+            <div className="modal-actions" style={{ marginTop: 24, justifyContent: "flex-end", gap: 12 }}>
+              <Button type="button" variant="outline" onClick={() => setCreatePromoOpen(false)} className="cam-cancel-btn">
+                Cancel
+              </Button>
+              <Button type="button" onClick={() => void executeCreatePromo()} disabled={promoSaving} className="btn-primary">
+                {promoSaving ? "Saving..." : "Create Promo"}
+              </Button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -725,9 +946,15 @@ export function AdminMissionControl() {
                 <Label htmlFor="cam-create-start">Date &amp; Time</Label>
                 <Input id="cam-create-start" type="datetime-local" value={createStart} onChange={(e) => setCreateStart(e.target.value)} className="h-10 shadow-none" />
               </div>
+            </div>
+            <div style={{ display: "flex", gap: 16 }}>
               <div className="form-group" style={{ flex: 1 }}>
                 <Label htmlFor="cam-create-duration">Duration (m)</Label>
                 <Input id="cam-create-duration" type="number" value={createDuration} onChange={(e) => setCreateDuration(e.target.value)} className="h-10 shadow-none" />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <Label htmlFor="cam-create-maxseats">Max Seats / Booking</Label>
+                <Input id="cam-create-maxseats" type="number" value={createMaxSeats} onChange={(e) => setCreateMaxSeats(e.target.value)} className="h-10 shadow-none" />
               </div>
             </div>
             <div style={{ display: "flex", gap: 16 }}>
@@ -746,21 +973,23 @@ export function AdminMissionControl() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <Label htmlFor="cam-create-projection">Định dạng chiếu</Label>
-                <Select value={createProjectionType} onValueChange={setCreateProjectionType}>
-                  <SelectTrigger id="cam-create-projection" className="h-10 w-full shadow-none">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROJECTION_OPTIONS.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {p}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {createCategory === "Phim chiếu rạp" && (
+                <div className="form-group" style={{ flex: 1 }}>
+                  <Label htmlFor="cam-create-projection">Định dạng chiếu</Label>
+                  <Select value={createProjectionType} onValueChange={setCreateProjectionType}>
+                    <SelectTrigger id="cam-create-projection" className="h-10 w-full shadow-none">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PROJECTION_OPTIONS.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {p}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             <div className="form-group">
               <Label htmlFor="cam-create-sale-opens">Mở bán vé (tùy chọn)</Label>
@@ -845,9 +1074,15 @@ export function AdminMissionControl() {
               <Label htmlFor="cam-edit-banner">Update Banner (Optional)</Label>
               <Input id="cam-edit-banner" type="file" accept="image/*" onChange={(e) => setEditBannerFile(e.target.files?.[0] ?? null)} className="h-auto cursor-pointer py-2 shadow-none file:cursor-pointer" />
             </div>
-            <div className="form-group">
-              <Label htmlFor="cam-edit-start">Date &amp; Time</Label>
-              <Input id="cam-edit-start" type="datetime-local" value={editStart} onChange={(e) => setEditStart(e.target.value)} className="h-10 shadow-none" />
+            <div style={{ display: "flex", gap: 16 }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <Label htmlFor="cam-edit-start">Date &amp; Time</Label>
+                <Input id="cam-edit-start" type="datetime-local" value={editStart} onChange={(e) => setEditStart(e.target.value)} className="h-10 shadow-none" />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <Label htmlFor="cam-edit-maxseats">Max Seats / Booking</Label>
+                <Input id="cam-edit-maxseats" type="number" value={editMaxSeats} onChange={(e) => setEditMaxSeats(e.target.value)} className="h-10 shadow-none" />
+              </div>
             </div>
             <div style={{ display: "flex", gap: 16 }}>
               <div className="form-group" style={{ flex: 1 }}>
@@ -865,21 +1100,23 @@ export function AdminMissionControl() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <Label htmlFor="cam-edit-projection">Định dạng chiếu</Label>
-                <Select value={editProjectionType} onValueChange={setEditProjectionType}>
-                  <SelectTrigger id="cam-edit-projection" className="h-10 w-full shadow-none">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {editProjectionChoices.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {p}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {editCategory === "Phim chiếu rạp" && (
+                <div className="form-group" style={{ flex: 1 }}>
+                  <Label htmlFor="cam-edit-projection">Định dạng chiếu</Label>
+                  <Select value={editProjectionType} onValueChange={setEditProjectionType}>
+                    <SelectTrigger id="cam-edit-projection" className="h-10 w-full shadow-none">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {editProjectionChoices.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {p}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
             <div className="form-group">
               <Label htmlFor="cam-edit-sale-opens">Mở bán vé</Label>
@@ -940,41 +1177,49 @@ export function AdminMissionControl() {
               <div
                 className="monitor-grid-root"
                 style={{
-                  gridTemplateColumns: monitorCols ? `repeat(${monitorCols}, 28px)` : undefined,
+                  gridTemplateColumns: monitorCols ? `24px repeat(${monitorCols}, 28px)` : undefined,
                 }}
               >
                 {monitorDims.rows > 0 &&
                   monitorCols > 0 &&
-                  Array.from({ length: monitorDims.rows }).map((_, r) =>
-                    Array.from({ length: monitorCols }).map((__, c) => {
-                      const seat = monitorSeatByPos.get(`${r}-${c}`);
-                      if (!seat || seat.type === "empty") {
+                  Array.from({ length: monitorDims.rows }).map((_, r) => (
+                    <Fragment key={`row-${r}`}>
+                      {/* Row label */}
+                      <div key={`label-${r}`} className="cell-slot" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", userSelect: "none" }}>
+                          {String.fromCharCode(65 + r)}
+                        </span>
+                      </div>
+                      {Array.from({ length: monitorCols }).map((__, c) => {
+                        const seat = monitorSeatByPos.get(`${r}-${c}`);
+                        if (!seat || seat.type === "empty") {
+                          return (
+                            <div key={`${r}-${c}`} className="cell-slot" data-r={r} data-c={c}>
+                              <div className="seat empty" />
+                            </div>
+                          );
+                        }
+                        const state = radarSeatStateClass(seat.status);
+                        const num = seat.seatNumber?.replace(/^[A-Z]+/, "") ?? "";
                         return (
                           <div key={`${r}-${c}`} className="cell-slot" data-r={r} data-c={c}>
-                            <div className="seat empty" />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              data-type={seat.type}
+                              className={cn("seat", state, "h-auto min-h-0 w-auto shrink-0 rounded-none border-0 p-0 shadow-none hover:bg-transparent")}
+                              onClick={() => {
+                                if (seat.status === "sold") return;
+                                void openOverrideModal(seat.seatNumber, seat.status);
+                              }}
+                            >
+                              {num}
+                            </Button>
                           </div>
                         );
-                      }
-                      const state = radarSeatStateClass(seat.status);
-                      const num = seat.seatNumber?.replace(/^[A-Z]+/, "") ?? "";
-                      return (
-                        <div key={`${r}-${c}`} className="cell-slot" data-r={r} data-c={c}>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            data-type={seat.type}
-                            className={cn("seat", state, "h-auto min-h-0 w-auto shrink-0 rounded-none border-0 p-0 shadow-none hover:bg-transparent")}
-                            onClick={() => {
-                              if (seat.status === "sold") return;
-                              void openOverrideModal(seat.seatNumber, seat.status);
-                            }}
-                          >
-                            {num}
-                          </Button>
-                        </div>
-                      );
-                    }),
-                  )}
+                      })}
+                    </Fragment>
+                  ))}
               </div>
             </div>
             <div className="monitor-legend">

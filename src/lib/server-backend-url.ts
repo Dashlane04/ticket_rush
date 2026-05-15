@@ -7,5 +7,5 @@ export function backendBaseUrl(): string {
     process.env.TICKET_RUSH_API_URL ??
     process.env.NEXT_PUBLIC_TICKET_RUSH_API_URL ??
     "http://127.0.0.1:3000";
-  return raw.replace(/\/$/, "");
+  return raw.replace(/\/$/, "") + "/api";
 }

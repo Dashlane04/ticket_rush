@@ -54,6 +54,13 @@ const primaryNavigation: NavItem[] = [
     iconClass: "fa-solid fa-users",
     isActive: (pathname) => pathname.startsWith("/admin/users"),
   },
+  {
+    id: "statistics",
+    name: "Statistics",
+    href: "/admin/statistics",
+    iconClass: "fa-solid fa-chart-line",
+    isActive: (pathname) => pathname.startsWith("/admin/statistics"),
+  },
 ];
 
 function routeSectionTitle(pathname: string): string | null {

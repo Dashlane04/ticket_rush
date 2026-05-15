@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, QrCode } from "lucide-react";
-import { notFound } from "next/navigation";
+import { notFound, useRouter } from "next/navigation";
 import { nestFetch } from "@/lib/nest-api";
-import { getOrCreateTabUserId } from "@/lib/concur/tab-user-id";
+import { useAuthStore } from "@/stores/auth-store";
 import { mapShowtimeToEventCard, type ShowtimeApiPayload } from "@/lib/showtime-customer";
 import type { UserTicketRow } from "./MyTicketsList";
 
@@ -15,21 +15,24 @@ export function TicketDetailClient({ ticketId }: Props) {
   const [row, setRow] = useState<UserTicketRow | null>(null);
   const [status, setStatus] = useState<"loading" | "ok" | "missing" | "error">("loading");
   const [err, setErr] = useState<string | null>(null);
+  const hydrated = useAuthStore((s) => s.hydrated);
+  const user = useAuthStore((s) => s.user);
+  const router = useRouter();
 
   useEffect(() => {
     setStatus("loading");
     setRow(null);
     setErr(null);
-    const userId = getOrCreateTabUserId();
-    if (userId === "USER-SERVER") {
-      setStatus("missing");
+    if (!hydrated) return;
+    if (!user) {
+      router.replace("/login");
       return;
     }
     let cancelled = false;
     (async () => {
       try {
-        const res = await nestFetch(
-          `tickets/user/${encodeURIComponent(userId)}/ticket/${encodeURIComponent(ticketId)}`,
+        const res = await fetch(
+          `/api/tickets/my-history/${encodeURIComponent(ticketId)}`,
         );
         if (res.status === 404) {
           if (!cancelled) setStatus("missing");
@@ -51,7 +54,7 @@ export function TicketDetailClient({ ticketId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [ticketId]);
+  }, [ticketId, hydrated, user, router]);
 
   if (status === "loading") {
     return <div className="py-12 text-center text-slate-500">Đang tải…</div>;
@@ -89,6 +92,19 @@ export function TicketDetailClient({ ticketId }: Props) {
       }
     : undefined;
 
+  const isExpired = st ? new Date(st.startTime).getTime() < Date.now() : false;
+  const qrUrl = row.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`TicketRush:${row.id.toUpperCase()}`)}`;
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   return (
     <div className="container mx-auto px-4 md:px-8 max-w-lg">
       <Link
@@ -99,10 +115,17 @@ export function TicketDetailClient({ ticketId }: Props) {
         Danh sách vé
       </Link>
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
-        <div className={`h-32 ${headerClass} relative`} style={headerStyle}>
+      <div className={`rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm ${isExpired ? 'opacity-75' : ''}`}>
+        <div className={`h-32 ${headerClass} relative ${isExpired ? 'grayscale' : ''}`} style={headerStyle}>
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 to-transparent" />
-          <p className="absolute bottom-4 left-4 right-4 text-white font-bold text-lg leading-snug">{title}</p>
+          <p className="absolute bottom-4 left-4 right-4 text-white font-bold text-lg leading-snug flex items-center justify-between">
+            {title}
+            {isExpired && (
+              <span className="text-xs uppercase tracking-wider font-semibold px-2 py-1 rounded bg-rose-600/80 text-white border border-rose-500">
+                Expired
+              </span>
+            )}
+          </p>
         </div>
         <div className="p-6 space-y-4">
           <div className="flex justify-between text-sm">
@@ -110,14 +133,38 @@ export function TicketDetailClient({ ticketId }: Props) {
             <span className="font-mono font-medium text-slate-900 dark:text-white">{row.id.toUpperCase()}</span>
           </div>
           <div className="flex justify-between text-sm">
+            <span className="text-slate-500">Suất chiếu</span>
+            <span className="font-medium text-slate-900 dark:text-white">{st ? formatDate(st.startTime) : "Không xác định"}</span>
+          </div>
+          <div className="flex justify-between text-sm">
             <span className="text-slate-500">Ghế</span>
             <span className="font-medium text-slate-900 dark:text-white">{row.seatId}</span>
           </div>
-          <div className="flex flex-col items-center py-8 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700">
-            <QrCode className="h-24 w-24 text-slate-400 mb-2" />
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">Giá vé</span>
+            <span className="font-medium text-slate-900 dark:text-white">
+              {row.price === 0 || row.price === "0" ? "Miễn phí" : (Number(row.price) < 1000 ? Number(row.price) * 25000 : Number(row.price)).toLocaleString("vi-VN", { style: "currency", currency: "VND" })}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-500">Ngày mua</span>
+            <span className="font-medium text-slate-900 dark:text-white">{formatDate(row.createdAt)}</span>
+          </div>
+          
+          <div className={`flex flex-col items-center py-8 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-200 dark:border-slate-700 relative overflow-hidden`}>
+            {isExpired && (
+              <div className="absolute inset-0 bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
+                <QrCode className="h-12 w-12 text-slate-400 mb-2 opacity-50" />
+                <span className="text-sm font-medium text-slate-500 uppercase tracking-widest">Vé Đã Hết Hạn</span>
+              </div>
+            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qrUrl} alt="Ticket QR" width={180} height={180} className={`rounded-lg mb-4 ${isExpired ? 'opacity-20' : ''}`} />
             <span className="text-xs text-slate-500">QR check-in</span>
           </div>
-          <p className="text-center text-xs text-slate-500">Trình mã này tại cổng vào sự kiện.</p>
+          <p className="text-center text-xs text-slate-500">
+            {isExpired ? "Vé này đã qua thời gian sử dụng." : "Trình mã này tại cổng vào sự kiện."}
+          </p>
         </div>
       </div>
     </div>

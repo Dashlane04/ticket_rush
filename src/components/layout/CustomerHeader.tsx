@@ -75,6 +75,9 @@ export default function CustomerHeader() {
               >
                 {user?.email}
               </span>
+              <Link href="/settings" className="hidden sm:inline text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-rose-600 transition-colors">
+                Cài đặt
+              </Link>
               <Button
                 type="button"
                 variant="outline"
