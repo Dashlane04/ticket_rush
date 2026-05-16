@@ -50,6 +50,21 @@ export class AdminService {
     return this.promoCodeRepo.remove(promo);
   }
 
+  async updatePromoCode(
+    id: string,
+    data: { isActive?: boolean; discountPercent?: number; maxUses?: number | null; validUntil?: string | null },
+  ) {
+    const promo = await this.promoCodeRepo.findOne({ where: { id } });
+    if (!promo) throw new NotFoundException('Promo code not found');
+    if (data.isActive !== undefined) promo.isActive = data.isActive;
+    if (data.discountPercent !== undefined) promo.discountPercent = data.discountPercent;
+    if ('maxUses' in data) promo.maxUses = data.maxUses ?? null;
+    if ('validUntil' in data) {
+      promo.validUntil = data.validUntil ? new Date(data.validUntil) : null;
+    }
+    return this.promoCodeRepo.save(promo);
+  }
+
   async createShowtime(dto: CreateShowtimeDto) {
     return await this.dataSource.transaction(async (manager) => {
       const start = new Date(dto.startTime);

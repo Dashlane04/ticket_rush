@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
@@ -49,6 +49,14 @@ export class AdminController {
   @Get('promo-codes')
   async getPromoCodes() {
     return this.adminService.listPromoCodes();
+  }
+
+  @Patch('promo-codes/:id')
+  async updatePromoCode(
+    @Param('id') id: string,
+    @Body() body: { isActive?: boolean; discountPercent?: number; maxUses?: number | null; validUntil?: string | null },
+  ) {
+    return this.adminService.updatePromoCode(id, body);
   }
 
   @Delete('promo-codes/:id')
