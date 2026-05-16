@@ -63,6 +63,11 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const queueIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Idle tracking
+  const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
+  const [kickedForIdle, setKickedForIdle] = useState(false);
+  const lastActivityRef = useRef<number>(Date.now());
+
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromoCode, setAppliedPromoCode] = useState<string | null>(null);
   const [promoDiscount, setPromoDiscount] = useState(0);
@@ -139,6 +144,64 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
     }
   }, []);
 
+  // Instantly release slot when user closes tab
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const blob = new Blob([JSON.stringify({ userId: getOrCreateTabUserId() })], { type: "application/json" });
+      navigator.sendBeacon(`/api/tickets/${showtimeId}/queue/leave`, blob);
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [showtimeId]);
+
+  const leaveQueue = useCallback(async () => {
+    try {
+      await nestFetch(`tickets/${showtimeId}/queue/leave`, {
+        method: "POST",
+        body: JSON.stringify({ userId: getOrCreateTabUserId() }),
+      });
+    } catch {
+      // ignore
+    }
+  }, [showtimeId]);
+
+  const clearQueuePolling = useCallback(() => {
+    if (queueIntervalRef.current) {
+      clearInterval(queueIntervalRef.current);
+      queueIntervalRef.current = null;
+    }
+  }, []);
+
+  // Idle kick effect
+  useEffect(() => {
+    if (queueState !== "waiting" && queueState !== "entered") return;
+    
+    const updateActivity = () => { lastActivityRef.current = Date.now(); };
+    window.addEventListener("mousemove", updateActivity);
+    window.addEventListener("keydown", updateActivity);
+    window.addEventListener("click", updateActivity);
+    window.addEventListener("scroll", updateActivity);
+    window.addEventListener("touchstart", updateActivity);
+
+    const interval = setInterval(() => {
+      if (Date.now() - lastActivityRef.current > IDLE_TIMEOUT_MS) {
+        setKickedForIdle(true);
+        clearQueuePolling();
+        clearPolling();
+        void leaveQueue();
+      }
+    }, 5000);
+
+    return () => {
+      window.removeEventListener("mousemove", updateActivity);
+      window.removeEventListener("keydown", updateActivity);
+      window.removeEventListener("click", updateActivity);
+      window.removeEventListener("scroll", updateActivity);
+      window.removeEventListener("touchstart", updateActivity);
+      clearInterval(interval);
+    };
+  }, [queueState, clearQueuePolling, clearPolling, leaveQueue, IDLE_TIMEOUT_MS]);
+
   const pollSeatStatusRef = useRef<(() => Promise<void>) | null>(null);
 
   const pollSeatStatus = useCallback(async () => {
@@ -175,23 +238,7 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
     pollSeatStatusRef.current = pollSeatStatus;
   }, [pollSeatStatus]);
 
-  const clearQueuePolling = useCallback(() => {
-    if (queueIntervalRef.current) {
-      clearInterval(queueIntervalRef.current);
-      queueIntervalRef.current = null;
-    }
-  }, []);
 
-  const leaveQueue = useCallback(async () => {
-    try {
-      await nestFetch(`tickets/${showtimeId}/queue/leave`, {
-        method: "POST",
-        body: JSON.stringify({ userId: getOrCreateTabUserId() }),
-      });
-    } catch {
-      // ignore
-    }
-  }, [showtimeId]);
 
   useEffect(() => {
     const joinQueue = async () => {
@@ -252,6 +299,10 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
         } else if (data.status === "WAIT") {
           setQueueState("waiting");
           setQueuePosition(data.position || 0);
+        } else if (data.status === "ERROR") {
+          setQueueState("error");
+          clearQueuePolling();
+          clearPolling();
         }
       } catch {
         // ignore
@@ -571,7 +622,23 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
         </div>
 
         <div className="cb-main relative">
-          {!saleOpen && saleCountdown && (
+          {kickedForIdle && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm rounded-2xl m-4 border border-rose-500/30 shadow-2xl">
+              <i className="fa-solid fa-user-clock text-rose-500 text-4xl mb-4" aria-hidden />
+              <h2 className="text-3xl font-bold text-white mb-3 text-center px-4">Hết phiên làm việc</h2>
+              <p className="text-slate-300 text-center max-w-sm px-6 mb-6">
+                Bạn đã bị đưa ra khỏi phòng chờ do không có tương tác trong một thời gian. Điều này giúp hệ thống giải phóng vị trí cho những người dùng khác.
+              </p>
+              <Button
+                type="button"
+                className="bg-rose-600 hover:bg-rose-500 text-white rounded-full px-8 py-2.5 font-bold transition-all shadow-lg shadow-rose-600/30"
+                onClick={() => window.location.reload()}
+              >
+                <i className="fa-solid fa-rotate-right mr-2" aria-hidden /> Tải lại trang
+              </Button>
+            </div>
+          )}
+          {!saleOpen && saleCountdown && !kickedForIdle && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/70 backdrop-blur-sm rounded-2xl m-4 border border-amber-500/20">
               <i className="fa-solid fa-clock-rotate-left text-amber-400 text-3xl mb-4" aria-hidden />
               <div className="bg-amber-500/10 text-amber-400 rounded-full px-6 py-2 mb-4 border border-amber-500/20 uppercase tracking-widest font-bold text-sm">
