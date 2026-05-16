@@ -48,7 +48,8 @@ export default async function BookingPage({ params }: { params: Promise<{ eventI
       showtimeId={showtimeId} 
       displayTitle={event.title} 
       eventMetaLine={eventMetaLine}
-      maxSeatsPerBooking={st.maxSeatsPerBooking} 
+      maxSeatsPerBooking={st.maxSeatsPerBooking}
+      ticketSaleOpensAt={st.ticketSaleOpensAt ?? null}
     />
   );
 }

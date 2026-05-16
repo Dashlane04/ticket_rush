@@ -35,9 +35,11 @@ type SeatBookingExperienceProps = {
   /** e.g. `Hall A • May 6, 2026, 1:59 PM` (prototype header subtitle). */
   eventMetaLine?: string;
   maxSeatsPerBooking?: number;
+  /** ISO string — if set and still in the future, show a countdown gate. */
+  ticketSaleOpensAt?: string | null;
 };
 
-export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine, maxSeatsPerBooking }: SeatBookingExperienceProps) {
+export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine, maxSeatsPerBooking, ticketSaleOpensAt }: SeatBookingExperienceProps) {
   const router = useRouter();
   const pathname = usePathname();
   const hydrated = useAuthStore((s) => s.hydrated);
@@ -66,6 +68,18 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
   const [promoDiscount, setPromoDiscount] = useState(0);
   const [promoLoading, setPromoLoading] = useState(false);
 
+  // Sale-opens countdown
+  const [saleCountdown, setSaleCountdown] = useState<string | null>(null);
+  const [saleOpen, setSaleOpen] = useState(() => {
+    if (!ticketSaleOpensAt) return true;
+    return new Date(ticketSaleOpensAt).getTime() <= Date.now();
+  });
+
+  // Seat-hold countdown (5 min)
+  const HOLD_DURATION_MS = 5 * 60 * 1000;
+  const [holdSecondsLeft, setHoldSecondsLeft] = useState<number | null>(null);
+  const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const requireLoginForPurchase = useCallback(() => {
@@ -76,6 +90,46 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
 
   useEffect(() => {
     locksAcquiredRef.current = locksAcquired;
+  }, [locksAcquired]);
+
+  // Sale-opens countdown effect
+  useEffect(() => {
+    if (!ticketSaleOpensAt) { setSaleOpen(true); return; }
+    const target = new Date(ticketSaleOpensAt).getTime();
+    const tick = () => {
+      const diff = target - Date.now();
+      if (diff <= 0) { setSaleOpen(true); setSaleCountdown(null); return; }
+      const h = Math.floor(diff / 3_600_000);
+      const m = Math.floor((diff % 3_600_000) / 60_000);
+      const s = Math.floor((diff % 60_000) / 1_000);
+      setSaleCountdown(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [ticketSaleOpensAt]);
+
+  // Hold countdown effect — starts when locks are acquired
+  useEffect(() => {
+    if (locksAcquired) {
+      const expiresAt = Date.now() + HOLD_DURATION_MS;
+      const tick = () => {
+        const remaining = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
+        setHoldSecondsLeft(remaining);
+        if (remaining === 0) {
+          clearInterval(holdTimerRef.current!);
+          holdTimerRef.current = null;
+          void cancelCheckout();
+        }
+      };
+      tick();
+      holdTimerRef.current = setInterval(tick, 1000);
+    } else {
+      if (holdTimerRef.current) { clearInterval(holdTimerRef.current); holdTimerRef.current = null; }
+      setHoldSecondsLeft(null);
+    }
+    return () => { if (holdTimerRef.current) clearInterval(holdTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locksAcquired]);
 
   const clearPolling = useCallback(() => {
@@ -517,6 +571,20 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
         </div>
 
         <div className="cb-main relative">
+          {!saleOpen && saleCountdown && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/70 backdrop-blur-sm rounded-2xl m-4 border border-amber-500/20">
+              <i className="fa-solid fa-clock-rotate-left text-amber-400 text-3xl mb-4" aria-hidden />
+              <div className="bg-amber-500/10 text-amber-400 rounded-full px-6 py-2 mb-4 border border-amber-500/20 uppercase tracking-widest font-bold text-sm">
+                Sale Opens In
+              </div>
+              <div className="text-5xl font-black text-white tracking-tighter tabular-nums mb-2" style={{ fontFeatureSettings: '"tnum"' }}>
+                {saleCountdown}
+              </div>
+              <p className="text-slate-400 text-sm text-center max-w-xs px-4">
+                Ticket sale has not started yet. Come back when the countdown reaches zero!
+              </p>
+            </div>
+          )}
           {isSoldOut && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-[2px] rounded-2xl m-4 border border-rose-500/20">
               <div className="bg-rose-500/10 text-rose-500 rounded-full px-6 py-2 mb-4 border border-rose-500/20 uppercase tracking-widest font-bold text-sm">
@@ -604,7 +672,22 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
       <div className={`cb-overlay ${!checkoutOpen ? "cb-hidden" : ""}`}>
         <div className="cb-checkout-box">
           <div id="payment-actions" className={checkoutPhase !== "summary" ? "cb-hidden-block" : undefined}>
-            <h2 style={{ margin: "0 0 10px", color: "var(--text-main)", fontSize: 24 }}>Order Summary</h2>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <h2 style={{ margin: 0, color: "var(--text-main)", fontSize: 24 }}>Order Summary</h2>
+              {holdSecondsLeft !== null && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  fontSize: 13, fontWeight: 700,
+                  color: holdSecondsLeft < 60 ? "#ef4444" : "#f97316",
+                  background: holdSecondsLeft < 60 ? "#fee2e2" : "#fff7ed",
+                  border: `1px solid ${holdSecondsLeft < 60 ? "#fca5a5" : "#fed7aa"}`,
+                  borderRadius: 8, padding: "4px 10px",
+                }}>
+                  <i className="fa-regular fa-clock" aria-hidden />
+                  {String(Math.floor(holdSecondsLeft / 60)).padStart(2, "0")}:{String(holdSecondsLeft % 60).padStart(2, "0")}
+                </div>
+              )}
+            </div>
             <p style={{ color: "var(--text-muted)", marginBottom: 30 }}>
               Please review your tickets before finalizing the purchase.
             </p>

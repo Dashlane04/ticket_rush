@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { nestFetch } from "@/lib/nest-api";
+import { formatVND } from "@/lib/format-currency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -680,7 +681,7 @@ export function SeatBlueprintEditor({
             </div>
             <div className="revenue-box">
               <span style={{ color: "#166534", fontWeight: 500 }}>Max Revenue:</span>
-              <span className="stat-total">${statsPack.revenue.toLocaleString()}</span>
+              <span className="stat-total">{formatVND(statsPack.revenue)}</span>
             </div>
           </div>
 
@@ -838,7 +839,7 @@ export function SeatBlueprintEditor({
               <br />
               <br />
               Estimated Maximum Revenue Capacity:{" "}
-              <strong style={{ color: "#15803d" }}>${statsPack.revenue.toLocaleString()}</strong>.
+              <strong style={{ color: "#15803d" }}>{formatVND(statsPack.revenue)}</strong>.
             </p>
             <div className="modal-footer">
               <Button type="button" variant="ghost" className="cam-bp-btn btn-secondary border-0 shadow-none hover:bg-transparent" onClick={() => setVerifyOpen(false)}>

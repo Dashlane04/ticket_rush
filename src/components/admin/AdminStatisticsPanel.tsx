@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { nestFetch } from "@/lib/nest-api";
+import { formatVND } from "@/lib/format-currency";
 import { DollarSign, TrendingUp, Ticket, Users, BarChart3, PieChart } from "lucide-react";
 
 /* ---------- types ---------- */
@@ -27,12 +28,12 @@ type PurchaseStats = {
   topEvents: TopEvent[];
   overview: Overview;
 };
+type PromoRow = { id: string; code: string; discountPercent: number; currentUses: number; maxUses: number | null; isActive: boolean };
 
 /* ---------- colors ---------- */
 const PIE_COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#3b82f6", "#ec4899", "#8b5cf6", "#14b8a6"];
 
 /* ---------- helpers ---------- */
-function fmtUSD(n: number) { return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
 
 /* ========== SVG Mini-Chart Components ========== */
 
@@ -159,17 +160,20 @@ function KpiCard({ icon: Icon, label, value, sub, color }: {
 export default function AdminStatisticsPanel() {
   const [purchase, setPurchase] = useState<PurchaseStats | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [promos, setPromos] = useState<PromoRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [pRes, uRes] = await Promise.all([
+        const [pRes, uRes, promoRes] = await Promise.all([
           nestFetch("admin/purchase-stats"),
           nestFetch("admin/users/stats"),
+          nestFetch("admin/promo-codes"),
         ]);
         if (pRes.ok) setPurchase(await pRes.json());
         if (uRes.ok) setUserStats(await uRes.json());
+        if (promoRes.ok) setPromos(await promoRes.json());
       } catch { /* ignore */ }
       finally { setLoading(false); }
     }
@@ -194,8 +198,8 @@ export default function AdminStatisticsPanel() {
       {/* KPI Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard icon={Ticket} label="Tổng vé bán ra" value={ov.totalTickets.toLocaleString()} color="#6366f1" />
-        <KpiCard icon={DollarSign} label="Tổng doanh thu" value={fmtUSD(ov.totalRevenue)} color="#10b981" />
-        <KpiCard icon={TrendingUp} label="Giá vé trung bình" value={fmtUSD(ov.avgTicketPrice)} color="#f59e0b" />
+        <KpiCard icon={DollarSign} label="Tổng doanh thu" value={formatVND(ov.totalRevenue)} color="#10b981" />
+        <KpiCard icon={TrendingUp} label="Giá vé trung bình" value={formatVND(ov.avgTicketPrice)} color="#f59e0b" />
         <KpiCard icon={Users} label="Người mua riêng biệt" value={ov.uniqueBuyers.toLocaleString()} color="#3b82f6" />
       </div>
 
@@ -214,7 +218,7 @@ export default function AdminStatisticsPanel() {
           />
           <div className="flex items-center justify-center gap-6 mt-3 text-xs text-slate-500">
             <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 rounded bg-indigo-500" /> Số vé</span>
-            <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 rounded bg-emerald-500" style={{ borderTop: "1.5px dashed #10b981", height: 0 }} /> Doanh thu ($)</span>
+            <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 rounded bg-emerald-500" style={{ borderTop: "1.5px dashed #10b981", height: 0 }} /> Doanh thu (₫)</span>
           </div>
         </div>
 
@@ -231,7 +235,7 @@ export default function AdminStatisticsPanel() {
           />
           <div className="flex items-center justify-center gap-6 mt-3 text-xs text-slate-500">
             <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 rounded bg-amber-500" /> Số vé</span>
-            <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 rounded bg-blue-500" style={{ borderTop: "1.5px dashed #3b82f6", height: 0 }} /> Doanh thu ($)</span>
+            <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 rounded bg-blue-500" style={{ borderTop: "1.5px dashed #3b82f6", height: 0 }} /> Doanh thu (₫)</span>
           </div>
         </div>
       </div>
@@ -298,7 +302,7 @@ export default function AdminStatisticsPanel() {
                         <span className="px-2 py-0.5 bg-slate-800 text-slate-300 text-xs rounded-full">{ev.category}</span>
                       </td>
                       <td className="py-3 pr-4 text-right text-slate-300 font-semibold tabular-nums">{ev.ticketsSold}</td>
-                      <td className="py-3 text-right text-emerald-400 font-bold tabular-nums">{fmtUSD(ev.revenue)}</td>
+                      <td className="py-3 text-right text-emerald-400 font-bold tabular-nums">{formatVND(ev.revenue)}</td>
                     </tr>
                   );
                 })}
@@ -333,6 +337,42 @@ export default function AdminStatisticsPanel() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Promo Code Usage Chart */}
+      {promos.filter(p => p.currentUses > 0).length > 0 && (
+        <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-6 shadow-sm">
+          <h3 className="font-semibold text-white mb-4 flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-rose-400" />
+            Top Promo Codes by Usage
+          </h3>
+          <div className="space-y-3">
+            {[...promos]
+              .filter(p => p.currentUses > 0)
+              .sort((a, b) => b.currentUses - a.currentUses)
+              .slice(0, 8)
+              .map((p) => {
+                const maxUses = promos.filter(x => x.currentUses > 0).reduce((m, x) => Math.max(m, x.currentUses), 1);
+                const pct = Math.max(4, Math.round((p.currentUses / maxUses) * 100));
+                return (
+                  <div key={p.id} className="flex items-center gap-3">
+                    <span className="font-mono text-sm font-bold text-rose-400 w-28 truncate shrink-0" title={p.code}>{p.code}</span>
+                    <div className="flex-1 h-5 bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full flex items-center px-2 transition-all"
+                        style={{ width: `${pct}%`, background: p.isActive ? "#e11d48" : "#475569" }}
+                      >
+                        <span className="text-[10px] font-bold text-white">{p.currentUses}</span>
+                      </div>
+                    </div>
+                    <span className="text-xs text-slate-400 w-16 text-right shrink-0">
+                      {p.discountPercent}% off · {p.maxUses ? `${p.currentUses}/${p.maxUses}` : `∞`}
+                    </span>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}

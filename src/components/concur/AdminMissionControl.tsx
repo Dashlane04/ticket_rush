@@ -73,6 +73,7 @@ export function AdminMissionControl() {
   const [createTitle, setCreateTitle] = useState("");
   const [createDescription, setCreateDescription] = useState("");
   const [createBannerFile, setCreateBannerFile] = useState<File | null>(null);
+  const [createBannerPreview, setCreateBannerPreview] = useState<string | null>(null);
   const [createStart, setCreateStart] = useState("");
   const [createDuration, setCreateDuration] = useState("120");
   const [createCategory, setCreateCategory] = useState<string>("Phim chiếu rạp");
@@ -88,6 +89,7 @@ export function AdminMissionControl() {
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editBannerFile, setEditBannerFile] = useState<File | null>(null);
+  const [editBannerPreview, setEditBannerPreview] = useState<string | null>(null);
   const [editStart, setEditStart] = useState("");
   const [editCategory, setEditCategory] = useState<string>("Phim chiếu rạp");
   const [editTicketSaleOpens, setEditTicketSaleOpens] = useState("");
@@ -120,6 +122,13 @@ export function AdminMissionControl() {
   const [promoMaxUses, setPromoMaxUses] = useState("");
   const [promoValidUntil, setPromoValidUntil] = useState("");
   const [promoSaving, setPromoSaving] = useState(false);
+
+  const [editPromoOpen, setEditPromoOpen] = useState(false);
+  const [editPromoId, setEditPromoId] = useState("");
+  const [editPromoDiscount, setEditPromoDiscount] = useState("10");
+  const [editPromoMaxUses, setEditPromoMaxUses] = useState("");
+  const [editPromoValidUntil, setEditPromoValidUntil] = useState("");
+  const [editPromoSaving, setEditPromoSaving] = useState(false);
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -196,6 +205,60 @@ export function AdminMissionControl() {
     } catch {
       toast.error("Error deleting promo code");
     }
+  };
+
+  const executeTogglePromo = async (id: string, currentActive: boolean) => {
+    try {
+      const res = await nestFetch(`admin/promo-codes/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive: !currentActive }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      await fetchPromos();
+    } catch {
+      toast.error("Error updating promo code");
+    }
+  };
+
+  const openEditPromo = (p: any) => {
+    setEditPromoId(p.id);
+    setEditPromoDiscount(String(p.discountPercent));
+    setEditPromoMaxUses(p.maxUses ? String(p.maxUses) : "");
+    if (p.validUntil) {
+      const d = new Date(p.validUntil);
+      if (!Number.isNaN(d.getTime())) {
+        setEditPromoValidUntil(d.toISOString().slice(0, 10));
+      } else setEditPromoValidUntil("");
+    } else setEditPromoValidUntil("");
+    setEditPromoOpen(true);
+  };
+
+  const executeEditPromo = async () => {
+    if (!editPromoDiscount) return toast.error("Discount is required");
+    setEditPromoSaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        discountPercent: parseInt(editPromoDiscount, 10),
+        maxUses: editPromoMaxUses ? parseInt(editPromoMaxUses, 10) : null,
+        validUntil: editPromoValidUntil ? new Date(editPromoValidUntil).toISOString() : null,
+      };
+      const res = await nestFetch(`admin/promo-codes/${editPromoId}`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Failed to update promo");
+      toast.success("Promo code updated!");
+      setEditPromoOpen(false);
+      await fetchPromos();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setEditPromoSaving(false);
+    }
+  };
+
+  const copyPromoCode = (code: string) => {
+    void navigator.clipboard.writeText(code).then(() => toast.success(`Copied "${code}" to clipboard`));
   };
 
   useEffect(() => {
@@ -798,6 +861,7 @@ export function AdminMissionControl() {
                 <tr>
                   <th style={{ textAlign: "left" }}>Code</th>
                   <th style={{ textAlign: "left" }}>Discount</th>
+                  <th style={{ textAlign: "left" }}>Status</th>
                   <th style={{ textAlign: "left" }}>Usage</th>
                   <th style={{ textAlign: "left" }}>Valid Until</th>
                   <th style={{ textAlign: "right" }}>Actions</th>
@@ -806,34 +870,67 @@ export function AdminMissionControl() {
               <tbody>
                 {promosLoading ? (
                   <tr>
-                    <td colSpan={5} className="cell-muted">Loading promos...</td>
+                    <td colSpan={6} className="cell-muted">Loading promos...</td>
                   </tr>
                 ) : promos.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="cell-muted">No promo codes found. Click &quot;Create Promo Code&quot; to add one.</td>
+                    <td colSpan={6} className="cell-muted">No promo codes found. Click &quot;Create Promo Code&quot; to add one.</td>
                   </tr>
                 ) : (
                   promos.map((p) => (
                     <tr key={p.id}>
                       <td>
-                        <span
-                          style={{
-                            fontFamily: "monospace",
-                            fontWeight: 700,
-                            fontSize: 13,
-                            letterSpacing: "0.05em",
-                            background: "var(--surface, #f1f5f9)",
-                            border: "1px solid var(--border, #e2e8f0)",
-                            borderRadius: 6,
-                            padding: "2px 8px",
-                            color: "var(--primary, #e11d48)",
-                          }}
-                        >
-                          {p.code}
-                        </span>
-                        {!p.isActive && <span style={{ marginLeft: 8, fontSize: 11, color: "#f43f5e" }}>(Inactive)</span>}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span
+                            style={{
+                              fontFamily: "monospace",
+                              fontWeight: 700,
+                              fontSize: 13,
+                              letterSpacing: "0.05em",
+                              background: "var(--surface, #f1f5f9)",
+                              border: "1px solid var(--border, #e2e8f0)",
+                              borderRadius: 6,
+                              padding: "2px 8px",
+                              color: p.isActive ? "var(--primary, #e11d48)" : "#94a3b8",
+                              textDecoration: p.isActive ? undefined : "line-through",
+                            }}
+                          >
+                            {p.code}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title="Copy code"
+                            onClick={() => copyPromoCode(p.code)}
+                            className="action-btn h-auto w-auto shrink-0 p-0 shadow-none border-0 hover:bg-transparent"
+                            style={{ fontSize: 11, color: "#94a3b8" }}
+                          >
+                            <i className="fa-regular fa-copy" aria-hidden />
+                          </Button>
+                        </div>
                       </td>
                       <td style={{ fontWeight: 600 }}>{p.discountPercent}%</td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => void executeTogglePromo(p.id, p.isActive)}
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            padding: "2px 10px",
+                            borderRadius: 20,
+                            border: "none",
+                            cursor: "pointer",
+                            background: p.isActive ? "#dcfce7" : "#f1f5f9",
+                            color: p.isActive ? "#166534" : "#64748b",
+                            transition: "all 0.15s",
+                          }}
+                          title={p.isActive ? "Click to deactivate" : "Click to activate"}
+                        >
+                          {p.isActive ? "Active" : "Inactive"}
+                        </button>
+                      </td>
                       <td>
                         <span style={{ fontWeight: 500 }}>{p.currentUses}</span>
                         <span style={{ color: "#94a3b8" }}> / {p.maxUses ? p.maxUses : "∞"}</span>
@@ -844,15 +941,28 @@ export function AdminMissionControl() {
                           : <span style={{ color: "#94a3b8" }}>Never</span>}
                       </td>
                       <td style={{ textAlign: "right" }}>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => void executeDeletePromo(p.id)}
-                          className="action-btn delete h-auto w-auto shrink-0 p-0 shadow-none border-0 hover:bg-transparent"
-                        >
-                          <i className="fa-solid fa-trash" aria-hidden />
-                        </Button>
+                        <div className="cam-dashboard-btn-row" style={{ justifyContent: "flex-end", gap: 4 }}>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title="Edit"
+                            onClick={() => openEditPromo(p)}
+                            className="action-btn edit h-auto w-auto shrink-0 p-0 shadow-none border-0 hover:bg-transparent"
+                          >
+                            <i className="fa-solid fa-pen" aria-hidden />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title="Delete"
+                            onClick={() => void executeDeletePromo(p.id)}
+                            className="action-btn delete h-auto w-auto shrink-0 p-0 shadow-none border-0 hover:bg-transparent"
+                          >
+                            <i className="fa-solid fa-trash" aria-hidden />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -889,6 +999,34 @@ export function AdminMissionControl() {
               </Button>
               <Button type="button" onClick={() => void executeCreatePromo()} disabled={promoSaving} className="btn-primary">
                 {promoSaving ? "Saving..." : "Create Promo"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {editPromoOpen ? (
+        <div className="modal-overlay" style={{ zIndex: 1000 }}>
+          <div className="modal-box" style={{ width: "100%", maxWidth: 400 }}>
+            <h2>Edit Promo Code</h2>
+            <div className="form-group">
+              <Label htmlFor="edit-promo-discount">Discount Percent (%)</Label>
+              <Input id="edit-promo-discount" type="number" min="1" max="100" value={editPromoDiscount} onChange={(e) => setEditPromoDiscount(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <Label htmlFor="edit-promo-maxUses">Max Uses (Optional)</Label>
+              <Input id="edit-promo-maxUses" type="number" min="1" value={editPromoMaxUses} onChange={(e) => setEditPromoMaxUses(e.target.value)} placeholder="Leave blank for infinite" />
+            </div>
+            <div className="form-group">
+              <Label htmlFor="edit-promo-valid">Valid Until (Optional)</Label>
+              <Input id="edit-promo-valid" type="date" value={editPromoValidUntil} onChange={(e) => setEditPromoValidUntil(e.target.value)} />
+            </div>
+            <div className="modal-actions" style={{ marginTop: 24, justifyContent: "flex-end", gap: 12 }}>
+              <Button type="button" variant="outline" onClick={() => setEditPromoOpen(false)} className="cam-cancel-btn">
+                Cancel
+              </Button>
+              <Button type="button" onClick={() => void executeEditPromo()} disabled={editPromoSaving} className="btn-primary">
+                {editPromoSaving ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </div>
@@ -939,7 +1077,56 @@ export function AdminMissionControl() {
             </div>
             <div className="form-group">
               <Label htmlFor="cam-create-banner">Movie Banner / Poster</Label>
-              <Input id="cam-create-banner" type="file" accept="image/*" onChange={(e) => setCreateBannerFile(e.target.files?.[0] ?? null)} className="h-auto cursor-pointer py-2 shadow-none file:cursor-pointer" />
+              <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 2, marginBottom: 6 }}>Recommended: 1280×720 (16:9). The image will be center-cropped to this ratio.</p>
+              <input
+                id="cam-create-banner"
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  setCreateBannerFile(f);
+                  if (f) {
+                    const url = URL.createObjectURL(f);
+                    setCreateBannerPreview(url);
+                  } else {
+                    setCreateBannerPreview(null);
+                  }
+                }}
+              />
+              <label
+                htmlFor="cam-create-banner"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  aspectRatio: "16/9",
+                  borderRadius: 10,
+                  border: "2px dashed var(--border, #e2e8f0)",
+                  cursor: "pointer",
+                  overflow: "hidden",
+                  position: "relative",
+                  background: createBannerPreview ? "#000" : "var(--surface, #f8fafc)",
+                }}
+              >
+                {createBannerPreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={createBannerPreview}
+                    alt="Banner preview"
+                    style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }}
+                  />
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "#94a3b8", gap: 8 }}>
+                    <i className="fa-solid fa-image" style={{ fontSize: 28 }} aria-hidden />
+                    <span style={{ fontSize: 13 }}>Click to upload banner</span>
+                  </div>
+                )}
+                {createBannerPreview && (
+                  <div style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 11, borderRadius: 6, padding: "2px 8px" }}>
+                    Click to change
+                  </div>
+                )}
+              </label>
             </div>
             <div style={{ display: "flex", gap: 16 }}>
               <div className="form-group" style={{ flex: 2 }}>
@@ -1046,7 +1233,7 @@ export function AdminMissionControl() {
               ) : null}
             </div>
             <div className="modal-footer">
-              <Button type="button" variant="outline" className="btn-secondary border-0 shadow-none" onClick={() => setCreateOpen(false)}>
+              <Button type="button" variant="outline" className="btn-secondary border-0 shadow-none" onClick={() => { setCreateOpen(false); setCreateBannerPreview(null); }}>
                 Cancel
               </Button>
               <Button type="button" disabled={createSaving} className="btn-primary gap-2 border-0 shadow-none" onClick={() => void executeCreateEvent()}>
@@ -1072,7 +1259,57 @@ export function AdminMissionControl() {
             </div>
             <div className="form-group">
               <Label htmlFor="cam-edit-banner">Update Banner (Optional)</Label>
-              <Input id="cam-edit-banner" type="file" accept="image/*" onChange={(e) => setEditBannerFile(e.target.files?.[0] ?? null)} className="h-auto cursor-pointer py-2 shadow-none file:cursor-pointer" />
+              <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 2, marginBottom: 6 }}>Recommended: 1280×720 (16:9). Leave blank to keep the current banner.</p>
+              <input
+                id="cam-edit-banner"
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  setEditBannerFile(f);
+                  if (f) {
+                    const url = URL.createObjectURL(f);
+                    setEditBannerPreview(url);
+                  } else {
+                    setEditBannerPreview(null);
+                  }
+                }}
+              />
+              <label
+                htmlFor="cam-edit-banner"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  aspectRatio: "16/9",
+                  borderRadius: 10,
+                  border: "2px dashed var(--border, #e2e8f0)",
+                  cursor: "pointer",
+                  overflow: "hidden",
+                  position: "relative",
+                  background: editBannerPreview ? "#000" : "var(--surface, #f8fafc)",
+                }}
+              >
+                {editBannerPreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={editBannerPreview}
+                    alt="Banner preview"
+                    style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }}
+                  />
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "#94a3b8", gap: 8 }}>
+                    <i className="fa-solid fa-image" style={{ fontSize: 28 }} aria-hidden />
+                    <span style={{ fontSize: 13 }}>Click to upload new banner</span>
+                    <span style={{ fontSize: 11 }}>(leave empty to keep current)</span>
+                  </div>
+                )}
+                {editBannerPreview && (
+                  <div style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 11, borderRadius: 6, padding: "2px 8px" }}>
+                    Click to change
+                  </div>
+                )}
+              </label>
             </div>
             <div style={{ display: "flex", gap: 16 }}>
               <div className="form-group" style={{ flex: 1 }}>

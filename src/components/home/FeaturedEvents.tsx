@@ -47,10 +47,10 @@ export default function FeaturedEvents({ events, sectionTitle = 'Sự kiện n�
           >
             {/* Image Skeleton */}
             <div
-              className={`w-full h-48 ${event.imageUrl ? "bg-slate-800" : (event.image || "bg-slate-800")} relative overflow-hidden flex items-center justify-center bg-cover bg-center`}
+              className={`w-full h-48 ${event.imageUrl ? "bg-slate-800" : (event.image || "bg-slate-800")} relative overflow-hidden flex items-center justify-center`}
               style={
                 event.imageUrl ?
-                  { backgroundImage: `url(${event.imageUrl})` }
+                  { backgroundImage: `url(${event.imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
                 : undefined
               }
             >
