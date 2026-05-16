@@ -465,7 +465,7 @@ export class TicketsService {
     }
 
     try {
-      const cutoffTime = Date.now() - 15000;
+      const cutoffTime = Date.now() - 90000;
       const ghosts = await this.redisService.zRangeByScore(
         `heartbeats:${showtimeId}`,
         0,
