@@ -19,7 +19,6 @@ type AuthedRequest = Request & {
   user: {
     id: string;
     email: string;
-    tenant_id: string | null;
     roles: string[];
   };
 };
@@ -41,7 +40,6 @@ export class AuthController {
     return {
       id: u.id,
       email: u.email,
-      tenant_id: u.tenant_id,
       roles: u.roles ?? [],
     };
   }

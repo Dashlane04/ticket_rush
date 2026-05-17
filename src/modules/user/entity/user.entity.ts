@@ -9,9 +9,6 @@ export enum GenderEnum {
 
 @Entity({ name: 'user' })
 export class UserEntity extends BaseEntity {
-  @Column({ name: 'tenant', type: 'uuid', nullable: true })
-  tenant: string | null;
-
   @Column({ name: 'name', type: 'varchar', nullable: true })
   name?: string;
 

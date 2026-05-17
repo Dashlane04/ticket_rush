@@ -6,9 +6,6 @@ export class RoleEntity extends BaseEntity {
   @Column({ name: 'name', type: 'varchar' })
   name: string;
 
-  @Column({ name: 'tenant', type: 'uuid', nullable: true })
-  tenant: string | null;
-
   @Column({ name: 'description', type: 'text', nullable: true })
   description?: string;
 }

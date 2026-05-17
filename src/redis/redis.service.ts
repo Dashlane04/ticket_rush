@@ -11,7 +11,7 @@ import redisConfig from 'src/configs/redis.config';
 type RedisConfig = ConfigType<typeof redisConfig>;
 
 /**
- * Một Redis server / một client trong app Nest: cache JWT-tenant-user + vé (lock, sorted set…).
+ * Mot Redis server / mot client trong app Nest: refresh token + cache user/auth + ve (lock, sorted set...).
  */
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
@@ -40,7 +40,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     this.client.quit();
   }
 
-  /** Cache JSON (tenant / user / auth). Key khác namespace với vé (lock:, queue:, …). */
+  /** Cache JSON (user / auth). Key khac namespace voi ve (lock:, queue:, ...). */
   async get(key: string) {
     const data = await this.client.get(key);
     return data ? JSON.parse(data) : null;

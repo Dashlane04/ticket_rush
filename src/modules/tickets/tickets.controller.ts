@@ -1,15 +1,14 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import type { Request } from 'express';
 
-import { BookTicketDto } from './dto/book-ticket.dto';
-import { TicketsService } from './tickets.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ADMIN_ROLE_NAME } from '../auth/admin-role.constant';
+import { TicketsService } from './tickets.service';
 
 type AuthedRequest = Request & {
   user: {
     id: string;
     email: string;
-    tenant_id: string | null;
     roles: string[];
   };
 };
@@ -17,6 +16,14 @@ type AuthedRequest = Request & {
 @Controller('tickets')
 export class TicketsController {
   constructor(private readonly ticketsService: TicketsService) {}
+
+  private assertTicketsForUserAllowed(req: AuthedRequest['user'], userId: string) {
+    const isSelf = req.id === userId;
+    const isAdmin = req.roles?.includes(ADMIN_ROLE_NAME) ?? false;
+    if (!isSelf && !isAdmin) {
+      throw new ForbiddenException('Không được xem vé của người dùng khác.');
+    }
+  }
 
   @Post('reserve')
   @UseGuards(JwtAuthGuard)
@@ -57,15 +64,20 @@ export class TicketsController {
   }
 
   @Get('user/:userId')
-  async getTicketsForUser(@Param('userId') userId: string) {
+  @UseGuards(JwtAuthGuard)
+  async getTicketsForUser(@Req() req: AuthedRequest, @Param('userId') userId: string) {
+    this.assertTicketsForUserAllowed(req.user, userId);
     return await this.ticketsService.getTicketsForUser(userId);
   }
 
   @Get('user/:userId/ticket/:ticketId')
+  @UseGuards(JwtAuthGuard)
   async getTicketForUser(
+    @Req() req: AuthedRequest,
     @Param('userId') userId: string,
     @Param('ticketId') ticketId: string,
   ) {
+    this.assertTicketsForUserAllowed(req.user, userId);
     return await this.ticketsService.getTicketForUser(userId, ticketId);
   }
 
@@ -75,13 +87,21 @@ export class TicketsController {
   }
 
   @Post('release')
+  @UseGuards(JwtAuthGuard)
   async releaseSeat(
+    @Req() req: AuthedRequest,
     @Body() body: { showtimeId: string; seatId: string },
   ) {
-    return this.ticketsService.releaseSeatLock(body.showtimeId, body.seatId);
+    return this.ticketsService.releaseSeatLock(
+      body.showtimeId,
+      body.seatId,
+      req.user.id,
+      req.user.roles ?? [],
+    );
   }
 
   @Post('validate-promo')
+  @UseGuards(JwtAuthGuard)
   async validatePromo(@Body() body: { code: string }) {
     return this.ticketsService.validatePromoCode(body.code);
   }
@@ -101,27 +121,30 @@ export class TicketsController {
   }
 
   @Post(':showtimeId/queue/join')
+  @UseGuards(JwtAuthGuard)
   async joinQueue(
+    @Req() req: AuthedRequest,
     @Param('showtimeId') showtimeId: string,
-    @Body('userId') userId: string,
   ) {
-    return this.ticketsService.joinQueue(showtimeId, userId);
+    return this.ticketsService.joinQueue(showtimeId, req.user.id);
   }
 
-  @Get(':showtimeId/queue/status/:userId')
+  @Get(':showtimeId/queue/status')
+  @UseGuards(JwtAuthGuard)
   async getQueueStatus(
+    @Req() req: AuthedRequest,
     @Param('showtimeId') showtimeId: string,
-    @Param('userId') userId: string,
   ) {
-    return this.ticketsService.getQueueStatus(showtimeId, userId);
+    return this.ticketsService.getQueueStatus(showtimeId, req.user.id);
   }
 
   @Post(':showtimeId/queue/leave')
+  @UseGuards(JwtAuthGuard)
   async leaveQueue(
+    @Req() req: AuthedRequest,
     @Param('showtimeId') showtimeId: string,
-    @Body('userId') userId: string,
   ) {
-    return this.ticketsService.leaveQueue(showtimeId, userId);
+    return this.ticketsService.leaveQueue(showtimeId, req.user.id);
   }
 
   @Post('reserve/cancel')

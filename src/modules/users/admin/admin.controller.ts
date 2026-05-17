@@ -13,7 +13,6 @@ interface RequestWithUser extends Request {
   user: {
     id: string;
     email: string;
-    tenant_id: string;
     roles: string[];
   };
 }

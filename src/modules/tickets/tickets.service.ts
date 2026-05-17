@@ -16,6 +16,7 @@ import {
   TICKET_QUEUE,
   PROCESS_BOOKING_JOB,
 } from 'src/infrastructure/queue/queue.constants';
+import { ADMIN_ROLE_NAME } from '../auth/admin-role.constant';
 import { RedisService } from 'src/redis/redis.service';
 import { BookTicketDto } from './dto/book-ticket.dto';
 import { SeatStatus, ShowtimeSeat } from './entities/showtime-seat.entity';
@@ -60,12 +61,33 @@ export class TicketsService {
     }
   }
 
-  async releaseSeatLock(showtimeId: string, seatId: string) {
-    await this.redisService.del(`lock:${showtimeId}:${seatId}`);
+  async releaseSeatLock(
+    showtimeId: string,
+    seatNumber: string,
+    requesterUserId: string,
+    requesterRoles: string[],
+  ) {
+    const seat = await this.showtimeSeatRepo.findOne({
+      where: { showtimeId, seatNumber },
+    });
+
+    const isAdmin = requesterRoles.includes(ADMIN_ROLE_NAME);
+
+    if (
+      seat?.status === SeatStatus.HELD &&
+      !isAdmin &&
+      seat.userId !== requesterUserId
+    ) {
+      throw new ForbiddenException(
+        'Không được mở khóa ghế đang giữ của người dùng khác.',
+      );
+    }
+
+    await this.redisService.del(`lock:${showtimeId}:${seatNumber}`);
 
     await this.showtimeSeatRepo.update(
-      { showtimeId, seatNumber: seatId },
-      { status: SeatStatus.AVAILABLE },
+      { showtimeId, seatNumber },
+      { status: SeatStatus.AVAILABLE, userId: null },
     );
 
     return { success: true };

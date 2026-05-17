@@ -19,7 +19,8 @@ export class RolesGuard implements CanActivate {
     if (!required?.length) {
       return true;
     }
-    if (process.env.NODE_ENV === 'development' || process.env.SKIP_ADMIN_ROLE === 'true') {
+    /** Chi bo qua khi SKIP_ADMIN_ROLE=true (tuy chon local). Khong bypass theo NODE_ENV. */
+    if (process.env.SKIP_ADMIN_ROLE === 'true') {
       return true;
     }
     const req = context.switchToHttp().getRequest();

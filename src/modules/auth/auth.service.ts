@@ -37,7 +37,6 @@ export class AuthService {
     return {
       sub: user.id,
       email: user.email,
-      tenant_id: user.tenant,
       roles,
     };
   }
