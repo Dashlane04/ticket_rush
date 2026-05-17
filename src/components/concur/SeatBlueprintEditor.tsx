@@ -116,7 +116,10 @@ function computeStats(grid: GridCell[][], seatConfig: Record<string, SeatTierCon
       if (cell.type === "empty") continue;
       if (seatConfig[cell.type]) counts[cell.type]++;
       if (cell.blocked) blocked++;
-      else if (seatConfig[cell.type]) revenue += seatConfig[cell.type].price;
+      else if (seatConfig[cell.type]) {
+        const p = seatConfig[cell.type].price;
+        revenue += p < 1000 ? p * 25000 : p;
+      }
     }
   }
   return { counts, blocked, revenue };
@@ -938,7 +941,7 @@ export function SeatBlueprintEditor({
                           {cfg.textColor === "#ffffff" ? "WHITE" : "BLACK"}
                         </span>
                       </td>
-                      <td style={{ fontWeight: 600 }}>${cfg.price}</td>
+                      <td style={{ fontWeight: 600 }}>{formatVND(cfg.price)}</td>
                       <td>
                         <div className="bp-inline-actions">
                           <Button type="button" title="Edit tier" variant="ghost" size="icon" className="action-btn h-auto w-auto shrink-0 border-0 p-2 shadow-none hover:bg-transparent" onClick={() => beginEditSeatType(id)}>
@@ -981,7 +984,7 @@ export function SeatBlueprintEditor({
                   />
                 </div>
                 <div className="input-group" style={{ flex: "0 0 auto", marginBottom: 0, width: 120 }}>
-                  <Label htmlFor="bp-new-seat-price">Price ($)</Label>
+                  <Label htmlFor="bp-new-seat-price">Price (VND)</Label>
                   <Input
                     id="bp-new-seat-price"
                     type="number"

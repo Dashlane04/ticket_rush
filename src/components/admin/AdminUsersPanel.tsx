@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { formatVND } from "@/lib/format-currency";
 import { Users, Activity, Ticket, User, CalendarDays, PieChart, Info, BarChart3, TrendingUp, DollarSign, Clock } from "lucide-react";
 
 type UserRow = {
@@ -442,6 +443,22 @@ export function AdminUsersPanel() {
       toast.error("Điền đủ tên, email và mật khẩu");
       return;
     }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(createEmail.trim())) {
+      toast.error("Email không hợp lệ");
+      return;
+    }
+    if (createPhone.trim()) {
+      const phoneRegex = /^[0-9\-\+\s()]{8,15}$/;
+      if (!phoneRegex.test(createPhone.trim())) {
+        toast.error("Số điện thoại không hợp lệ");
+        return;
+      }
+    }
+    if (createPassword.length < 6) {
+      toast.error("Mật khẩu phải dài ít nhất 6 ký tự");
+      return;
+    }
     setCreateSaving(true);
     try {
       const res = await nestFetch("user", {
@@ -487,6 +504,22 @@ export function AdminUsersPanel() {
     if (!editId) return;
     if (!editName.trim() || !editEmail.trim()) {
       toast.error("Tên và email là bắt buộc");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editEmail.trim())) {
+      toast.error("Email không hợp lệ");
+      return;
+    }
+    if (editPhone.trim()) {
+      const phoneRegex = /^[0-9\-\+\s()]{8,15}$/;
+      if (!phoneRegex.test(editPhone.trim())) {
+        toast.error("Số điện thoại không hợp lệ");
+        return;
+      }
+    }
+    if (editPassword && editPassword.length < 6) {
+      toast.error("Mật khẩu phải dài ít nhất 6 ký tự");
       return;
     }
     setEditSaving(true);
@@ -813,7 +846,7 @@ export function AdminUsersPanel() {
                   </div>
                   <div>
                     <span className="text-slate-500 block text-xs">Tổng chi tiêu:</span>
-                    <span className="font-medium">${userTelemetry.totalSpent.toFixed(2)}</span>
+                    <span className="font-medium">{formatVND(userTelemetry.totalSpent)}</span>
                   </div>
                   <div className="col-span-2">
                     <span className="text-slate-500 block text-xs mb-1">Thể loại yêu thích:</span>
@@ -890,7 +923,7 @@ export function AdminUsersPanel() {
                    <span>Tổng chi tiêu</span>
                  </div>
                  <div className="text-2xl font-bold text-emerald-600">
-                   {userTelemetry ? `$${userTelemetry.totalSpent.toFixed(2)}` : "..."}
+                   {userTelemetry ? formatVND(userTelemetry.totalSpent) : "..."}
                  </div>
                </div>
                <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-white dark:bg-slate-900 shadow-sm">
@@ -899,7 +932,7 @@ export function AdminUsersPanel() {
                    <span>Giá vé trung bình</span>
                  </div>
                  <div className="text-2xl font-bold text-blue-600">
-                   {userTelemetry ? `$${userTelemetry.avgTicketPrice.toFixed(2)}` : "..."}
+                   {userTelemetry ? formatVND(userTelemetry.avgTicketPrice) : "..."}
                  </div>
                </div>
                <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-white dark:bg-slate-900 shadow-sm">
@@ -1004,7 +1037,7 @@ export function AdminUsersPanel() {
                       </svg>
                       <div className="flex items-center justify-center gap-6 mt-2 text-xs text-slate-500">
                         <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 bg-blue-500 rounded" /> Số vé</span>
-                        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 bg-emerald-500 rounded border-dashed" style={{ borderTop: "1px dashed #10b981", height: 0 }} /> Chi tiêu ($)</span>
+                        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-0.5 bg-emerald-500 rounded border-dashed" style={{ borderTop: "1px dashed #10b981", height: 0 }} /> Chi tiêu (₫)</span>
                       </div>
                     </div>
                   );

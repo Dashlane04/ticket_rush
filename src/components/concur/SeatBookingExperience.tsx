@@ -561,6 +561,7 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
       setLocksAcquired(false);
       locksAcquiredRef.current = false;
       setCheckoutPhase("success");
+      clearQueuePolling();
       void pollSeatStatus();
     } catch (err) {
       setLoaderOpen(false);

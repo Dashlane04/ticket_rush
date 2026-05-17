@@ -130,6 +130,11 @@ export function AdminMissionControl() {
   const [editPromoValidUntil, setEditPromoValidUntil] = useState("");
   const [editPromoSaving, setEditPromoSaving] = useState(false);
 
+  const [sysConfigOpen, setSysConfigOpen] = useState(false);
+  const [queueThreshold, setQueueThreshold] = useState("2");
+  const [configSaving, setConfigSaving] = useState(false);
+  const [queueResetting, setQueueResetting] = useState(false);
+
   const fetchEvents = useCallback(async () => {
     try {
       const res = await nestFetch("admin/events");
@@ -259,6 +264,49 @@ export function AdminMissionControl() {
 
   const copyPromoCode = (code: string) => {
     void navigator.clipboard.writeText(code).then(() => toast.success(`Copied "${code}" to clipboard`));
+  };
+
+  const openSysConfig = async () => {
+    setSysConfigOpen(true);
+    try {
+      const res = await nestFetch("admin/config/queue-threshold");
+      const data = await res.json();
+      if (data && data.threshold) setQueueThreshold(String(data.threshold));
+    } catch {
+      // ignore
+    }
+  };
+
+  const executeSaveConfig = async () => {
+    setConfigSaving(true);
+    try {
+      const res = await nestFetch("admin/config/queue-threshold", {
+        method: "PATCH",
+        body: JSON.stringify({ threshold: parseInt(queueThreshold, 10) })
+      });
+      if (!res.ok) throw new Error("Update failed");
+      toast.success("System configuration updated!");
+      setSysConfigOpen(false);
+    } catch {
+      toast.error("Failed to update system config.");
+    } finally {
+      setConfigSaving(false);
+    }
+  };
+
+  const executeResetQueues = async () => {
+    if (!confirm("Are you sure? This will kick all active users in all showtimes back to the waiting room!")) return;
+    setQueueResetting(true);
+    try {
+      const res = await nestFetch("admin/config/queue-reset", { method: "POST" });
+      if (!res.ok) throw new Error("Reset failed");
+      toast.success("All virtual queues have been successfully reset.");
+      setSysConfigOpen(false);
+    } catch {
+      toast.error("Failed to reset queues");
+    } finally {
+      setQueueResetting(false);
+    }
   };
 
   useEffect(() => {
@@ -658,6 +706,10 @@ export function AdminMissionControl() {
           <div className="header-actions">
             <h2>Event management</h2>
             <div className="header-actions-btns">
+              <Button type="button" onClick={() => void openSysConfig()} className="btn-secondary gap-2">
+                <i className="fa-solid fa-gear" aria-hidden />
+                System Settings
+              </Button>
               <Button type="button" onClick={() => setTemplatesOpen(true)} className="btn-secondary gap-2">
                 <i className="fa-solid fa-map" aria-hidden />
                 Manage Templates
@@ -1520,6 +1572,50 @@ export function AdminMissionControl() {
               <Button type="button" disabled={overrideBusy} className="btn-warning gap-2 border-0 shadow-none" onClick={() => void executeSeatOverride()}>
                 {overrideBusy ? <i className="fa-solid fa-spinner fa-spin" aria-hidden /> : null}
                 Apply Override
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {sysConfigOpen ? (
+        <div className="modal-overlay" style={{ zIndex: 1050 }}>
+          <div className="modal-box" style={{ width: "100%", maxWidth: 400 }}>
+            <h2>System Settings</h2>
+            <div className="form-group mb-6">
+              <Label htmlFor="cam-queue-threshold">Virtual Queue Threshold</Label>
+              <Input
+                id="cam-queue-threshold"
+                type="number"
+                min="1"
+                value={queueThreshold}
+                onChange={(e) => setQueueThreshold(e.target.value)}
+                className="h-10 shadow-none"
+              />
+              <p className="mt-1 text-xs text-slate-500">Limits the number of users who can simultaneously pick seats for a single showtime.</p>
+            </div>
+            
+            <div className="form-group border-t border-rose-100 pt-4 mt-2">
+              <Label className="text-rose-600 font-semibold mb-2 block"><i className="fa-solid fa-triangle-exclamation mr-2" /> Danger Zone</Label>
+              <p className="text-xs text-slate-500 mb-3">If the virtual queue is malfunctioning or capacity was just changed drastically, you can flush all active users back into the waiting room.</p>
+              <Button 
+                type="button" 
+                disabled={queueResetting}
+                onClick={() => void executeResetQueues()}
+                className="w-full bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white border border-rose-200 shadow-none transition-colors"
+              >
+                {queueResetting ? <i className="fa-solid fa-spinner fa-spin mr-2" /> : <i className="fa-solid fa-power-off mr-2" />}
+                Reset Queues
+              </Button>
+            </div>
+
+            <div className="modal-footer mt-6">
+              <Button type="button" variant="outline" className="btn-secondary border-0 shadow-none" onClick={() => setSysConfigOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="button" disabled={configSaving} className="btn-primary gap-2 border-0 shadow-none" onClick={() => void executeSaveConfig()}>
+                {configSaving ? <i className="fa-solid fa-spinner fa-spin" aria-hidden /> : null}
+                Save Config
               </Button>
             </div>
           </div>
