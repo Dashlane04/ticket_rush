@@ -5,9 +5,10 @@ import { COOKIE_ACCESS, accessCookieOptions } from "@/lib/auth-cookie-settings";
 
 export async function POST(req: Request) {
   const resolved = await resolveAccessTokenFromCookies();
-  // Validating promo code might not strictly require auth, but since the flow is authed, we can pass it if available.
-  // Actually, the NestJS route we created is just `@Post('validate-promo')` without `@UseGuards(JwtAuthGuard)`.
-  
+  if (!resolved.ok) {
+    return NextResponse.json({ message: "Cần đăng nhập để kiểm tra mã khuyến mãi." }, { status: 401 });
+  }
+
   const raw = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const code = raw.code;
   if (typeof code !== "string" || !code) {
@@ -17,10 +18,8 @@ export async function POST(req: Request) {
   const upstream = upstreamAuthBase();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    Authorization: `Bearer ${resolved.token}`,
   };
-  if (resolved.ok) {
-    headers["Authorization"] = `Bearer ${resolved.token}`;
-  }
 
   const nestRes = await fetch(`${upstream}/tickets/validate-promo`, {
     method: "POST",

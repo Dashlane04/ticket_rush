@@ -54,6 +54,11 @@ export default function LoginPage() {
           ? new URLSearchParams(window.location.search).get("redirect")
           : null;
       if (isSafeInternalRedirect(redirect)) {
+        const toAdmin = redirect === "/admin" || redirect.startsWith("/admin/");
+        if (toAdmin && !userHasAdminRole(me)) {
+          router.push("/");
+          return;
+        }
         router.push(redirect);
         return;
       }

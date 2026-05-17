@@ -3,7 +3,6 @@ import { ADMIN_ROLE_NAME } from "./auth-constants";
 export type AuthUser = {
   id: string;
   email: string;
-  tenant_id: string | null;
   roles: string[];
 };
 

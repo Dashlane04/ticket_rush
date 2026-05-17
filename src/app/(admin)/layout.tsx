@@ -13,12 +13,9 @@ import "@/styles/concur-seat-blueprint.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
-/** Bài tập / local: không ép role Admin. Production: chỉ vào được khi có role Admin trong JWT (trừ khi set NEXT_PUBLIC_SKIP_ADMIN_ROLE). */
+/** Chỉ bỏ qua kiểm tra Admin khi set NEXT_PUBLIC_SKIP_ADMIN_ROLE=true (local / staging có chủ đích). Luôn ép role Admin ở mọi NODE_ENV. */
 function skipAdminRoleCheck(): boolean {
-  return (
-    process.env.NODE_ENV === "development" ||
-    process.env.NEXT_PUBLIC_SKIP_ADMIN_ROLE === "true"
-  );
+  return process.env.NEXT_PUBLIC_SKIP_ADMIN_ROLE === "true";
 }
 
 type NavItem = {

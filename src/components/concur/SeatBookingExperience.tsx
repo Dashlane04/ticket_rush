@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import "@fortawesome/fontawesome-free/css/all.min.css";
-import { nestFetch } from "@/lib/nest-api";
+import { nestFetch, nestApiUrl } from "@/lib/nest-api";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -16,7 +16,6 @@ import {
 } from "@/lib/concur/seat-grid-utils";
 import "@/styles/concur-booking.css";
 import { useAuthStore } from "@/stores/auth-store";
-import { getOrCreateTabUserId } from "@/lib/concur/tab-user-id";
 
 async function ticketBffPost(path: string, body: Record<string, unknown>) {
   return fetch(path, {
@@ -62,6 +61,8 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
   const [queueState, setQueueState] = useState<"idle" | "joining" | "waiting" | "entered" | "error">("idle");
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const queueIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const userRef = useRef(user);
+  userRef.current = user;
 
   // Idle tracking
   const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
@@ -147,8 +148,14 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
   // Instantly release slot when user closes tab
   useEffect(() => {
     const handleBeforeUnload = () => {
-      const blob = new Blob([JSON.stringify({ userId: getOrCreateTabUserId() })], { type: "application/json" });
-      navigator.sendBeacon(`/api/tickets/${showtimeId}/queue/leave`, blob);
+      if (!userRef.current) return;
+      void fetch(nestApiUrl(`tickets/${showtimeId}/queue/leave`), {
+        method: "POST",
+        credentials: "include",
+        keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
@@ -158,7 +165,7 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
     try {
       await nestFetch(`tickets/${showtimeId}/queue/leave`, {
         method: "POST",
-        body: JSON.stringify({ userId: getOrCreateTabUserId() }),
+        body: "{}",
       });
     } catch {
       // ignore
@@ -241,12 +248,24 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
 
 
   useEffect(() => {
+    if (!hydrated) return;
+
+    // Chưa đăng nhập: không dùng hàng chờ ảo, vẫn tải sơ đồ ghế công khai
+    if (!user) {
+      setQueueState("entered");
+      void pollSeatStatus();
+      return () => {
+        clearQueuePolling();
+        clearPolling();
+      };
+    }
+
     const joinQueue = async () => {
       setQueueState("joining");
       try {
         const res = await nestFetch(`tickets/${showtimeId}/queue/join`, {
           method: "POST",
-          body: JSON.stringify({ userId: getOrCreateTabUserId() }),
+          body: "{}",
         });
         if (!res.ok) throw new Error("Join queue failed");
         const data = (await res.json()) as { status: string; position?: number };
@@ -272,9 +291,22 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
       void leaveQueue();
       clearPolling();
     };
-  }, [showtimeId, pollSeatStatus, leaveQueue, clearQueuePolling, clearPolling]);
+  }, [
+    hydrated,
+    user?.id,
+    showtimeId,
+    pollSeatStatus,
+    leaveQueue,
+    clearQueuePolling,
+    clearPolling,
+  ]);
 
   useEffect(() => {
+    if (!user) {
+      clearQueuePolling();
+      return;
+    }
+
     if (queueState !== "waiting" && queueState !== "entered") {
       clearQueuePolling();
       return;
@@ -282,9 +314,7 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
 
     const checkStatus = async () => {
       try {
-        const res = await nestFetch(
-          `tickets/${showtimeId}/queue/status/${encodeURIComponent(getOrCreateTabUserId())}`,
-        );
+        const res = await nestFetch(`tickets/${showtimeId}/queue/status`);
         if (!res.ok) return;
         const data = (await res.json()) as { status: string; position?: number };
 
@@ -313,7 +343,7 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
       void checkStatus();
     }, 3000);
     return () => clearQueuePolling();
-  }, [queueState, showtimeId, pollSeatStatus, clearQueuePolling]);
+  }, [queueState, showtimeId, user?.id, pollSeatStatus, clearQueuePolling, clearPolling]);
 
   const seatByPos = useMemo(() => {
     const m = new Map<string, ParsedSeat>();
@@ -476,6 +506,10 @@ export function SeatBookingExperience({ showtimeId, displayTitle, eventMetaLine,
 
   const applyPromo = async () => {
     if (!promoInput.trim()) return;
+    if (hydrated && !user) {
+      requireLoginForPurchase();
+      return;
+    }
     setPromoLoading(true);
     try {
       const res = await ticketBffPost("/api/tickets/validate-promo", { code: promoInput.trim() });
