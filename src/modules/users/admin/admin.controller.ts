@@ -13,6 +13,7 @@ interface RequestWithUser extends Request {
   user: {
     id: string;
     email: string;
+    tenant_id: string;
     roles: string[];
   };
 }
@@ -153,5 +154,20 @@ export class AdminController {
   @Get('purchase-stats')
   async getPurchaseStats() {
     return this.adminService.getPurchaseStats();
+  }
+
+  @Get('config/queue-threshold')
+  async getQueueThreshold() {
+    return this.adminService.getQueueThreshold();
+  }
+
+  @Patch('config/queue-threshold')
+  async updateQueueThreshold(@Body('threshold') threshold: number) {
+    return this.adminService.updateQueueThreshold(threshold);
+  }
+
+  @Post('config/queue-reset')
+  async resetAllQueues() {
+    return this.adminService.resetAllQueues();
   }
 }

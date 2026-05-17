@@ -95,8 +95,6 @@ export class TicketsController {
     return this.ticketsService.releaseSeatLock(
       body.showtimeId,
       body.seatId,
-      req.user.id,
-      req.user.roles ?? [],
     );
   }
 

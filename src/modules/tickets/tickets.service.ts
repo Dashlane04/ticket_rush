@@ -16,7 +16,6 @@ import {
   TICKET_QUEUE,
   PROCESS_BOOKING_JOB,
 } from 'src/infrastructure/queue/queue.constants';
-import { ADMIN_ROLE_NAME } from '../auth/admin-role.constant';
 import { RedisService } from 'src/redis/redis.service';
 import { BookTicketDto } from './dto/book-ticket.dto';
 import { SeatStatus, ShowtimeSeat } from './entities/showtime-seat.entity';
@@ -61,33 +60,12 @@ export class TicketsService {
     }
   }
 
-  async releaseSeatLock(
-    showtimeId: string,
-    seatNumber: string,
-    requesterUserId: string,
-    requesterRoles: string[],
-  ) {
-    const seat = await this.showtimeSeatRepo.findOne({
-      where: { showtimeId, seatNumber },
-    });
-
-    const isAdmin = requesterRoles.includes(ADMIN_ROLE_NAME);
-
-    if (
-      seat?.status === SeatStatus.HELD &&
-      !isAdmin &&
-      seat.userId !== requesterUserId
-    ) {
-      throw new ForbiddenException(
-        'Không được mở khóa ghế đang giữ của người dùng khác.',
-      );
-    }
-
-    await this.redisService.del(`lock:${showtimeId}:${seatNumber}`);
+  async releaseSeatLock(showtimeId: string, seatId: string) {
+    await this.redisService.del(`lock:${showtimeId}:${seatId}`);
 
     await this.showtimeSeatRepo.update(
-      { showtimeId, seatNumber },
-      { status: SeatStatus.AVAILABLE, userId: null },
+      { showtimeId, seatNumber: seatId },
+      { status: SeatStatus.AVAILABLE },
     );
 
     return { success: true };
@@ -420,7 +398,6 @@ export class TicketsService {
     }
   }
 
-  private readonly MAX_ACTIVE_USERS = 2;
 
   async joinQueue(showtimeId: string, userId: string) {
     await this.redisService.zAddOverwrite(
@@ -476,6 +453,28 @@ export class TicketsService {
     return { success: true };
   }
 
+  async gracefulPromoteAll() {
+    const keys = await this.redisService.keys('queue:*');
+    const showtimeIds = keys.map((k) => k.replace('queue:', ''));
+    
+    // De-duplicate in case of weirdness, though keys should be unique
+    const uniqueIds = Array.from(new Set(showtimeIds));
+    for (const id of uniqueIds) {
+      await this.cleanupGhostsAndPromote(id);
+    }
+  }
+
+  async hardResetAllQueues() {
+    const activeKeys = await this.redisService.keys('active:*');
+    const queueKeys = await this.redisService.keys('queue:*');
+    const hbKeys = await this.redisService.keys('heartbeats:*');
+    
+    const allKeys = [...activeKeys, ...queueKeys, ...hbKeys];
+    if (allKeys.length > 0) {
+      await this.redisService.del(allKeys);
+    }
+  }
+
   private async cleanupGhostsAndPromote(showtimeId: string) {
     const acquiredLock = await this.redisService.acquireLock(
       `lock:promote:${showtimeId}`,
@@ -501,8 +500,10 @@ export class TicketsService {
         console.log(`Cleaned up ${ghosts.length} ghost users.`);
       }
 
+      const maxUsersStr = await this.redisService.get('config:queue_threshold');
+      const maxUsers = maxUsersStr ? parseInt(maxUsersStr, 10) : 2;
       const activeCount = await this.redisService.sCard(`active:${showtimeId}`);
-      const slotsAvailable = this.MAX_ACTIVE_USERS - activeCount;
+      const slotsAvailable = maxUsers - activeCount;
 
       if (slotsAvailable > 0) {
         const nextUsers = await this.redisService.zRange(

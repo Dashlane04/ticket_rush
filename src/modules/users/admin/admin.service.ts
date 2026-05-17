@@ -7,6 +7,7 @@ import { ShowtimeSeat, SeatStatus } from 'src/modules/tickets/entities/showtime-
 import type { SeatType } from 'src/modules/tickets/entities/showtime-seat.entity';
 import { SeatTemplate } from 'src/modules/tickets/entities/template-seat.entity';
 import { PromoCode } from 'src/modules/tickets/entities/promo-code.entity';
+import { TicketsService } from 'src/modules/tickets/tickets.service';
 import { RedisService } from 'src/redis/redis.service';
 
 import { CreateShowtimeDto } from './dto/create-showtime.dto';
@@ -24,6 +25,7 @@ export class AdminService {
     @InjectRepository(PromoCode)
     private readonly promoCodeRepo: Repository<PromoCode>,
     private readonly redisService: RedisService,
+    private readonly ticketsService: TicketsService,
   ) {}
 
   async createPromoCode(data: { code: string; discountPercent: number; maxUses?: number; validUntil?: string }) {
@@ -455,5 +457,24 @@ export class AdminService {
     };
 
     return { dailyRevenue, monthlyRevenue, revenueByCategory, topEvents, overview };
+  }
+
+  async getQueueThreshold() {
+    const val = await this.redisService.get('config:queue_threshold');
+    return { threshold: val ? parseInt(val, 10) : 2 };
+  }
+
+  async updateQueueThreshold(threshold: number) {
+    await this.redisService.set('config:queue_threshold', threshold.toString());
+    // Trigger graceful promotion across all active showtimes
+    // so if threshold increased, waiting users enter immediately.
+    await this.ticketsService.gracefulPromoteAll();
+    
+    return { success: true, threshold };
+  }
+
+  async resetAllQueues() {
+    await this.ticketsService.hardResetAllQueues();
+    return { success: true };
   }
 }

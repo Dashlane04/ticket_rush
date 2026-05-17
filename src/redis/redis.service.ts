@@ -139,4 +139,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async zRemRangeByScore(key: string, min: number, max: number) {
     return this.client.zremrangebyscore(key, min, max);
   }
+
+  async keys(pattern: string) {
+    return this.client.keys(pattern);
+  }
 }
