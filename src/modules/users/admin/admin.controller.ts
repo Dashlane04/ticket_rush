@@ -170,4 +170,9 @@ export class AdminController {
   async resetAllQueues() {
     return this.adminService.resetAllQueues();
   }
+
+  @Get('tickets/:code')
+  async getTicketByCode(@Param('code') code: string) {
+    return this.adminService.getTicketByCode(code);
+  }
 }

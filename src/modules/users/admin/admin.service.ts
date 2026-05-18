@@ -477,4 +477,29 @@ export class AdminService {
     await this.ticketsService.hardResetAllQueues();
     return { success: true };
   }
+
+  async getTicketByCode(code: string) {
+    // Validate UUID format roughly to avoid DB crash
+    const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    if (!uuidRegex.test(code)) {
+      throw new NotFoundException('Invalid ticket code format');
+    }
+    
+    const rows = await this.dataSource.query(`
+      SELECT 
+        t.id, t.status, t.price, t."seatId", t."createdAt",
+        u.email as "userEmail", u.name as "userName",
+        s."movieTitle", s."hallName", s."startTime"
+      FROM tickets t
+      LEFT JOIN "user" u ON t."userId"::uuid = u.id
+      LEFT JOIN showtimes s ON t."showtimeId"::uuid = s.id
+      WHERE t.id = $1
+    `, [code]);
+    
+    if (!rows || rows.length === 0) {
+      throw new NotFoundException('Ticket not found');
+    }
+    
+    return rows[0];
+  }
 }
