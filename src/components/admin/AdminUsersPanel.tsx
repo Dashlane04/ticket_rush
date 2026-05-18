@@ -430,6 +430,22 @@ export function AdminUsersPanel() {
     }
   };
 
+  const toggleUserActiveRow = async (id: string, currentStatus: boolean) => {
+    try {
+      const endpoint = currentStatus ? "user/inactivate" : "user/activate";
+      const res = await nestFetch(endpoint, {
+        method: "PUT",
+        body: JSON.stringify({ ids: [id] }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(nestErrorMessage(body));
+      toast.success(currentStatus ? "Đã vô hiệu hóa" : "Đã kích hoạt");
+      await loadUsers();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lỗi cập nhật trạng thái");
+    }
+  };
+
   const openCreate = () => {
     setCreateName("");
     setCreateEmail("");
@@ -722,6 +738,9 @@ export function AdminUsersPanel() {
                       </Button>
                       <Button type="button" variant="ghost" size="xs" onClick={() => void openEdit(row)}>
                         Sửa
+                      </Button>
+                      <Button type="button" variant="ghost" size="xs" onClick={() => void toggleUserActiveRow(row.id, rowIsActive(row.is_active))}>
+                        {rowIsActive(row.is_active) ? "Vô hiệu" : "Kích hoạt"}
                       </Button>
                       <Button
                         type="button"

@@ -11,8 +11,8 @@ import {
   gridDimensions,
   parseSeatRecords,
   type ParsedSeat,
-  type SeatApiRecord,
 } from "@/lib/concur/seat-grid-utils";
+import { formatVND } from "@/lib/format-currency";
 import "@/styles/concur-admin-monitor.css";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,9 +62,10 @@ export function AdminMissionControl() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [hallFilter, setHallFilter] = useState("all");
+  const [timeFilter, setTimeFilter] = useState<"all" | "upcoming" | "past">("all");
   const [liveUsers, setLiveUsers] = useState(0);
 
-  const [activeTab, setActiveTab] = useState<"events" | "promos">("events");
+  const [activeTab, setActiveTab] = useState<"events" | "promos" | "tickets">("events");
 
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -134,6 +135,31 @@ export function AdminMissionControl() {
   const [queueThreshold, setQueueThreshold] = useState("2");
   const [configSaving, setConfigSaving] = useState(false);
   const [queueResetting, setQueueResetting] = useState(false);
+
+  const [lookupCode, setLookupCode] = useState("");
+  const [lookupResult, setLookupResult] = useState<any>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+
+  const handleLookupTicket = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!lookupCode.trim()) return;
+    setLookupLoading(true);
+    setLookupError(null);
+    setLookupResult(null);
+    try {
+      const res = await nestFetch(`admin/tickets/${encodeURIComponent(lookupCode.trim())}`);
+      if (!res.ok) {
+        throw new Error("Ticket not found or invalid format");
+      }
+      const data = await res.json();
+      setLookupResult(data);
+    } catch (err: any) {
+      setLookupError(err.message);
+    } finally {
+      setLookupLoading(false);
+    }
+  };
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -354,19 +380,28 @@ export function AdminMissionControl() {
 
   const filtered = useMemo(() => {
     const q = searchTerm.toLowerCase();
+    const now = new Date();
     return allEvents.filter(
-      (show) =>
-        show.movieTitle.toLowerCase().includes(q) &&
-        (hallFilter === "all" || show.hallName === hallFilter),
+      (show) => {
+        const matchTitle = show.movieTitle.toLowerCase().includes(q);
+        const matchHall = hallFilter === "all" || show.hallName === hallFilter;
+        let matchTime = true;
+        if (timeFilter === "upcoming") {
+          matchTime = new Date(show.startTime) >= now;
+        } else if (timeFilter === "past") {
+          matchTime = new Date(show.startTime) < now;
+        }
+        return matchTitle && matchHall && matchTime;
+      }
     );
-  }, [allEvents, searchTerm, hallFilter]);
+  }, [allEvents, searchTerm, hallFilter, timeFilter]);
 
   const pageSize = 10;
   const [pageIndex, setPageIndex] = useState(0);
 
   useEffect(() => {
     setPageIndex(0);
-  }, [searchTerm, hallFilter]);
+  }, [searchTerm, hallFilter, timeFilter]);
 
   const filteredTotal = filtered.length;
   const pageCount = Math.max(1, Math.ceil(filteredTotal / pageSize));
@@ -698,6 +733,13 @@ export function AdminMissionControl() {
           >
             Promo Codes
           </button>
+          <button
+            type="button"
+            className={cn("px-4 py-2 font-medium text-sm rounded-t-lg transition-colors border-b-2", activeTab === "tickets" ? "border-rose-500 text-rose-600 dark:text-rose-400" : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300")}
+            onClick={() => setActiveTab("tickets")}
+          >
+            Tickets
+          </button>
         </div>
       </div>
 
@@ -743,6 +785,16 @@ export function AdminMissionControl() {
                 {h}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+        <Select value={timeFilter} onValueChange={(v: any) => setTimeFilter(v)}>
+          <SelectTrigger className={cn("cam-filter-select filter-select h-10 min-h-10 w-[min(100%,260px)] justify-between shadow-none")}>
+            <SelectValue placeholder="Time" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Time</SelectItem>
+            <SelectItem value="upcoming">Upcoming</SelectItem>
+            <SelectItem value="past">Past / Archived</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -894,6 +946,85 @@ export function AdminMissionControl() {
         </div>
       )}
         </>
+      )}
+
+      {activeTab === "tickets" && (
+        <div className="max-w-2xl mx-auto py-8">
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-2">Ticket Lookup</h2>
+            <p className="text-slate-500 text-sm">Enter a ticket UUID code to find details about the purchase.</p>
+          </div>
+          
+          <form onSubmit={handleLookupTicket} className="flex gap-2 mb-8">
+            <Input 
+              value={lookupCode} 
+              onChange={(e) => setLookupCode(e.target.value)} 
+              placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000"
+              className="cam-search-input flex-1 h-11 border border-slate-300 dark:border-slate-700 shadow-sm"
+            />
+            <Button type="submit" disabled={lookupLoading} className="h-11 px-6">
+              {lookupLoading ? "Searching..." : "Search"}
+            </Button>
+          </form>
+
+          {lookupError && (
+            <div className="bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 p-4 rounded-xl text-sm border border-rose-100 dark:border-rose-800/30">
+              <i className="fa-solid fa-circle-exclamation mr-2" />
+              {lookupError}
+            </div>
+          )}
+
+          {lookupResult && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                    {lookupResult.movieTitle || "Unknown Event"}
+                  </h3>
+                  <p className="text-slate-500 text-sm font-medium">{lookupResult.hallName}</p>
+                </div>
+                <div className={cn("px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider", 
+                  lookupResult.status === 'CONFIRMED' ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
+                  lookupResult.status === 'CANCELLED' ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400" :
+                  "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                )}>
+                  {lookupResult.status}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-y-4 gap-x-8 text-sm">
+                <div>
+                  <div className="text-slate-500 mb-1">Ticket ID</div>
+                  <div className="font-mono text-xs font-medium text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded w-fit">{lookupResult.id}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500 mb-1">Seat</div>
+                  <div className="font-semibold text-slate-900 dark:text-white">{lookupResult.seatId}</div>
+                </div>
+                <div>
+                  <div className="text-slate-500 mb-1">Price</div>
+                  <div className="font-semibold text-rose-600 dark:text-rose-400">
+                    {formatVND(lookupResult.price || 0)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-slate-500 mb-1">Purchased At</div>
+                  <div className="font-medium text-slate-900 dark:text-white">
+                    {lookupResult.createdAt ? new Date(lookupResult.createdAt).toLocaleString('vi-VN') : "—"}
+                  </div>
+                </div>
+                <div className="col-span-2 pt-4 border-t border-slate-100 dark:border-slate-800 mt-2">
+                  <div className="text-slate-500 mb-1">Purchaser</div>
+                  <div className="font-medium flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                    <span className="text-slate-900 dark:text-white">{lookupResult.userName || "Unknown"}</span>
+                    <span className="text-slate-400 text-xs hidden sm:inline">•</span>
+                    <span className="text-slate-600 dark:text-slate-400">{lookupResult.userEmail || "No email"}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {activeTab === "promos" && (
