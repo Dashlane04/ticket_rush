@@ -1,0 +1,158 @@
+// PostgreSQL schema tu NestJS + TypeORM backend (paste vao dbdiagram.io).
+Enum seat_status_pg {
+  unavailable
+  available
+  held
+  sold
+}
+
+Table "user" {
+  id uuid [pk]
+  created_at date
+  created_by uuid [null]
+  updated_at date [null]
+  updated_by uuid [null]
+  is_deleted boolean [not null, default: false]
+  is_active boolean [not null, default: true]
+  name varchar [null]
+  email varchar [not null, unique]
+  password varchar [not null]
+  phone varchar [null, unique]
+  avatar varchar [null]
+  gender varchar [null]
+  date_of_birth date [null]
+}
+
+Table role {
+  id uuid [pk]
+  created_at date
+  created_by uuid [null]
+  updated_at date [null]
+  updated_by uuid [null]
+  is_deleted boolean [not null, default: false]
+  is_active boolean [not null, default: true]
+  name varchar [not null]
+  description text [null]
+}
+
+Table permission {
+  id uuid [pk]
+  created_at date
+  created_by uuid [null]
+  updated_at date [null]
+  updated_by uuid [null]
+  is_deleted boolean [not null, default: false]
+  is_active boolean [not null, default: true]
+  name varchar [not null]
+  description text [null]
+}
+
+Table user_role {
+  user_id uuid [pk]
+  role_id uuid [pk]
+  created_at timestamptz [not null]
+}
+
+Table role_permission {
+  role_id uuid [pk]
+  permission_id uuid [pk]
+}
+
+Table showtimes {
+  id uuid [pk]
+  movieTitle varchar [not null]
+  theatreName varchar [not null]
+  hallName varchar [not null]
+  startTime timestamptz [not null]
+  endTime timestamptz [not null]
+  projectionType varchar [not null]
+  ageRating varchar [not null]
+  totalSeats int [not null, default: 0]
+  availableSeats int [not null, default: 0]
+  description text [null]
+  maxSeatsPerBooking int [not null, default: 8]
+  bannerImage text [null]
+  category varchar [not null, default: 'Khác']
+  ticketSaleOpensAt timestamptz [null]
+}
+
+Table showtime_seats {
+  id uuid [pk]
+  showtimeId uuid [not null]
+  seatNumber varchar [not null]
+  status seat_status_pg [not null, default: 'available']
+  section varchar [not null]
+  type varchar [not null]
+  price decimal(10,2) [not null, default: 15]
+  userId varchar [null]
+  version int [not null]
+  rowNumber int [null]
+  colNumber int [null]
+
+  Indexes {
+    showtimeId
+    (showtimeId, seatNumber) [unique]
+  }
+}
+
+Table template_seats {
+  id uuid [pk]
+  templateId varchar [not null]
+  templateName varchar [not null]
+  hallName varchar [not null]
+  seatId varchar [not null]
+  rowNumber int [not null]
+  colNumber int [not null]
+  type varchar [not null]
+  isBlocked boolean [not null, default: false]
+  price decimal(10,2) [not null, default: 15]
+}
+
+Table tickets {
+  id uuid [pk]
+  userId varchar [not null]
+  showtimeId varchar [not null]
+  seatId varchar [not null]
+  status varchar [not null, default: 'CONFIRMED']
+  price decimal(10,2) [not null]
+  metadata jsonb [null]
+  qrCodeUrl varchar [null]
+  createdAt timestamptz [not null]
+
+  Indexes {
+    userId
+    (showtimeId, seatId) [unique]
+  }
+}
+
+Table booking_transactions {
+  id uuid [pk]
+  ticketId varchar [not null]
+  paymentProviderId varchar [not null]
+  status varchar [not null]
+  amount decimal(10,2) [not null]
+  createdAt timestamptz [not null]
+}
+
+Table promo_codes {
+  id uuid [pk]
+  code varchar [not null, unique]
+  discountPercent int [not null]
+  maxUses int [null]
+  currentUses int [not null, default: 0]
+  validUntil timestamp [null]
+  isActive boolean [not null, default: true]
+  createdAt timestamptz [not null]
+  updatedAt timestamptz [not null]
+}
+
+Ref: user_role.user_id > "user".id
+Ref: user_role.role_id > role.id
+Ref: role_permission.role_id > role.id
+Ref: role_permission.permission_id > permission.id
+Ref: showtime_seats.showtimeId > showtimes.id
+Ref: showtime_seats.userId > "user".id
+Ref: tickets.userId > "user".id
+Ref: tickets.showtimeId > showtimes.id
+Ref: tickets.seatId > showtime_seats.id
+Ref: booking_transactions.ticketId > tickets.id

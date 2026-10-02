@@ -1,0 +1,34 @@
+  [
+    {
+      "code": "role:create",
+      "name":"Quyền tạo quyền"
+    },
+    {
+      "code": "role:read",
+      "name":"Quyền xem quyền"
+    },
+    {
+      "code": "role:update",
+      "name":"Quyền cập nhật quyền"
+    },
+    {
+      "code": "role:delete",
+      "name":"Quyền xóa quyền"
+    },
+    {
+      "code": "user:create",
+      "name":"Quyền tạo người dùng"
+    },
+    {
+      "code": "user:read",
+      "name":"Quyền xem người dùng"
+    },
+    {
+      "code": "user:update",
+      "name":"Quyền cập nhật người dùng"
+    },
+    {
+      "code": "user:delete",
+      "name":"Quyền xóa người dùng"
+    }
+  ]

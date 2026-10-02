@@ -1,0 +1,49 @@
+# Postgres + Redis — user/pass/db: ticket_rush (khớp DEV_DEFAULTS trong src/configs/env.validate.ts)
+#
+# Postgres publish 5433 (host) -> 5432 (container) để không trùng PostgreSQL cài sẵn trên Windows (thường chiếm 5432).
+#
+# Lỗi "password authentication failed for user ticket_rush":
+# - Đặt DB_PORT=5433 trong .env (hoặc dùng default trong src/configs/env.validate.ts).
+# - .env: DB_PASSWORD sai (không rỗng) vẫn ghi đè default — sửa thành ticket_rush hoặc xóa dòng.
+# - Volume cũ: docker compose down && docker compose up -d hoặc docker compose down -v
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ticket_rush_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ticket_rush
+      POSTGRES_PASSWORD: ticket_rush
+      POSTGRES_DB: ticket_rush
+    ports:
+      - "5433:5432"
+    volumes:
+      - ticket_rush_pgdata_v2:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticket_rush -d ticket_rush"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ticket_rush_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ticket_rush
+    ports:
+      - "6379:6379"
+    volumes:
+      - ticket_rush_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "ticket_rush", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  ticket_rush_pgdata_v2:
+  ticket_rush_redisdata:
