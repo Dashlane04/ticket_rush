@@ -11,6 +11,7 @@ import {
   gridDimensions,
   parseSeatRecords,
   type ParsedSeat,
+  type SeatApiRecord,
 } from "@/lib/concur/seat-grid-utils";
 import { formatVND } from "@/lib/format-currency";
 import "@/styles/concur-admin-monitor.css";
