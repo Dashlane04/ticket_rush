@@ -166,4 +166,3 @@ pnpm run test:e2e
 
 The latest frontend line (`test_fe`) and backend line (`test`) are the authoritative implementations in this monorepo. Their earlier development branches are ancestors of those tips. The independent `concur` line is preserved in the merge history; its Redis/queue/concurrent-booking work is represented by the later backend implementation rather than duplicated as a second application tree.
 
-No historical development branches were deleted during consolidation.
