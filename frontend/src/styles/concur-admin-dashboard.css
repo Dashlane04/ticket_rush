@@ -1,0 +1,788 @@
+/*
+ * Derived from concur/source/src/admin-dashboard-latest.html (<style> block).
+ * Scoped under .cam-admin so it does not override global app styles.
+ * Live radar shell + grid: ./concur-admin-monitor.css (.cam-radar-scope).
+ */
+
+.cam-admin.cam-admin-shell {
+  --surface: #ffffff;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --border: #e5e7eb;
+  --sidebar-bg: #0f172a;
+  --sidebar-hover: #1e293b;
+  --sidebar-active: #38bdf8;
+  background: #f3f4f6;
+  color: var(--text-main);
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  font-size: 14px;
+}
+
+.cam-admin-shell .sidebar {
+  width: 240px;
+  background: var(--sidebar-bg);
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 0;
+  flex-shrink: 0;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.cam-admin-shell .brand {
+  font-size: 18px;
+  font-weight: 700;
+  padding: 0 24px 24px;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--surface);
+  letter-spacing: -0.5px;
+}
+
+.cam-admin-shell .brand-icon {
+  color: var(--sidebar-active);
+  flex-shrink: 0;
+}
+
+.cam-admin-shell .nav-links {
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cam-admin-shell .nav-scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.cam-admin-shell .nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  color: #94a3b8;
+  text-decoration: none;
+  transition: 0.2s;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.cam-admin-shell .nav-link:hover {
+  background: var(--sidebar-hover);
+  color: var(--surface);
+}
+
+.cam-admin-shell .nav-link.active {
+  background: var(--sidebar-hover);
+  color: var(--sidebar-active);
+  border-right: 3px solid var(--sidebar-active);
+}
+
+.cam-admin-shell .sidebar-footer {
+  margin-top: auto;
+  padding: 16px 12px;
+  border-top: 1px solid #1e293b;
+}
+
+.cam-admin-shell .main-content-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cam-admin-shell .main-scroll {
+  flex: 1;
+  padding: 24px 32px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/*
+ * Showtime dashboard stacks stats → title/actions → filters → table inside one React root.
+ * HTML prototype uses .main-content { display: flex; flex-direction: column; gap: 24px } on those siblings.
+ * Without this, all sections collapse with no vertical rhythm.
+ */
+.cam-admin-shell .cam-mission {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: 100%;
+  min-width: 0;
+}
+
+.cam-admin-shell .page-title-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.cam-admin-shell .page-title-bar h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  color: var(--text-main);
+}
+
+.cam-admin-shell .stats-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .cam-admin-shell .stats-board {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .cam-admin-shell .stats-board {
+    grid-template-columns: 1fr;
+  }
+
+  .cam-admin-shell .sidebar {
+    width: 100%;
+  }
+
+  .cam-admin-shell.cam-admin {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
+  .cam-admin-shell .main-scroll {
+    padding: 16px;
+  }
+}
+
+.cam-admin-shell .stat-card {
+  background: var(--surface);
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.05),
+    0 1px 2px rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: transform 0.2s;
+}
+
+.cam-admin-shell .stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.cam-admin-shell .stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.cam-admin-shell .stat-icon.blue {
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.cam-admin-shell .stat-icon.green {
+  background: #f0fdf4;
+  color: #22c55e;
+}
+
+.cam-admin-shell .stat-icon.purple {
+  background: #faf5ff;
+  color: #a855f7;
+}
+
+.cam-admin-shell .stat-icon.orange {
+  background: #fff7ed;
+  color: #f97316;
+}
+
+.cam-admin-shell .stat-icon svg,
+.cam-admin-shell .stat-icon i {
+  font-size: 20px;
+}
+
+.cam-admin-shell .action-btn i {
+  font-size: 14px;
+}
+
+.cam-admin-shell .stat-details h3 {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cam-admin-shell .stat-details p {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1;
+}
+
+.cam-admin-shell .header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 4px 0 8px;
+}
+
+.cam-admin-shell .header-actions-btns {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cam-admin-shell .header-actions h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  color: var(--text-main);
+}
+
+.cam-admin-shell .controls {
+  display: flex;
+  gap: 12px;
+  background: var(--surface);
+  padding: 14px 16px;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border);
+}
+
+.cam-admin-shell .search-box {
+  flex: 1;
+  position: relative;
+}
+
+.cam-admin-shell .search-box .search-icon,
+.cam-admin-shell .search-box i.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+  font-size: 13px;
+}
+
+.cam-admin-shell .controls input.cam-search-input {
+  width: 100%;
+  padding: 10px 14px 10px 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: 0.2s;
+  background: #f9fafb;
+}
+
+.cam-admin-shell .controls select.cam-filter-select {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: 0.2s;
+  background: #f9fafb;
+  min-width: 150px;
+  cursor: pointer;
+}
+
+.cam-admin-shell .controls input.cam-search-input:focus,
+.cam-admin-shell .controls select.cam-filter-select:focus {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.cam-admin-shell .cam-dashboard-btn-row {
+  display: flex;
+  gap: 8px;
+}
+
+.cam-admin-shell button.cam-btn {
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.cam-admin-shell .btn-primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
+}
+
+.cam-admin-shell .btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+}
+
+.cam-admin-shell .btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.cam-admin-shell .btn-secondary {
+  background: var(--surface);
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  padding: 10px 18px;
+  border-radius: 8px;
+}
+
+.cam-admin-shell .btn-secondary:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.cam-admin-shell .btn-warning {
+  background: #f59e0b;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+}
+
+.cam-admin-shell .btn-warning:hover {
+  background: #d97706;
+}
+
+.cam-admin-shell .btn-link-concur {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.cam-admin-shell .table-container {
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.cam-admin-shell .table-container.cam-table-flat {
+  box-shadow: none;
+}
+
+.cam-admin-shell .table-container.cam-manage-templates-scroll {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.cam-admin-shell .table-container.cam-table-flat .showtime-table td.cell-muted,
+.cam-admin-shell .table-container.cam-table-flat .showtime-table td.cell-error {
+  padding: 20px;
+}
+
+.cam-admin-shell .showtime-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.cam-admin-shell .showtime-table thead th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cam-admin-shell .showtime-table td {
+  padding: 16px 22px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+  color: var(--text-main);
+}
+
+.cam-admin-shell .showtime-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cam-admin-shell .showtime-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.cam-admin-shell .movie-title-row,
+.cam-admin-shell .movie-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+  color: var(--text-main);
+}
+
+.cam-admin-shell .movie-id {
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: ui-monospace, monospace;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  word-break: break-all;
+  max-width: 250px;
+  margin-top: 4px;
+}
+
+.cam-admin-shell .header-actions .btn-secondary,
+.cam-admin-shell .header-actions .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.cam-admin-shell .status-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  display: inline-block;
+}
+
+.cam-admin-shell .status-upcoming {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.cam-admin-shell .status-past {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.cam-admin-shell .action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.cam-admin-shell .action-btn:hover {
+  color: var(--surface);
+}
+
+.cam-admin-shell .action-btn.radar:hover {
+  background: #8b5cf6;
+}
+
+.cam-admin-shell .action-btn.edit:hover {
+  background: #3b82f6;
+}
+
+.cam-admin-shell .action-btn.delete:hover {
+  background: #ef4444;
+}
+
+/* Icon-only controls on white modal chrome: generic .action-btn:hover uses --surface (white) → invisible */
+.cam-admin-shell .modal-head .action-btn:not(.radar):not(.edit):not(.delete):hover,
+.cam-admin-shell .cam-radar-toolbar .action-btn:not(.radar):not(.edit):not(.delete):hover {
+  color: var(--text-muted);
+  background: transparent;
+}
+
+.cam-admin-shell .modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.cam-admin-shell .modal-box {
+  background: var(--surface);
+  padding: 32px;
+  border-radius: 16px;
+  width: 480px;
+  max-width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+.cam-admin-shell .modal-box.large {
+  width: auto;
+  min-width: 600px;
+  max-width: 90vw;
+}
+
+@media (max-width: 640px) {
+  .cam-admin-shell .modal-box.large {
+    min-width: 100%;
+    max-width: 100%;
+  }
+}
+
+.cam-admin-shell .modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.cam-admin-shell .modal-head h2 {
+  margin: 0;
+}
+
+.cam-admin-shell .modal-box > h2,
+.cam-admin-shell .modal-box h2 {
+  margin: 0 0 24px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.cam-admin-shell .modal-footer-actions,
+.cam-admin-shell .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.cam-admin-shell .modal-footer button,
+.cam-admin-shell .modal-footer-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.cam-admin-shell .form-group {
+  margin-bottom: 16px;
+}
+
+.cam-admin-shell .form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cam-admin-shell .form-group input[type="file"] {
+  margin-top: 8px;
+  display: block;
+}
+
+.cam-admin-shell .form-group input:not([type="file"]),
+.cam-admin-shell .form-group select,
+.cam-admin-shell .form-group textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: 0.2s;
+  background: #f9fafb;
+}
+
+.cam-admin-shell .form-group textarea {
+  resize: vertical;
+}
+
+.cam-admin-shell .form-group input:focus,
+.cam-admin-shell .form-group select:focus,
+.cam-admin-shell .form-group textarea:focus {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.cam-admin-shell .text-center-muted {
+  text-align: center;
+  padding: 40px 20px;
+  color: #94a3b8;
+}
+
+.cam-admin-shell .cam-logout-wrap {
+  width: 100%;
+}
+
+.cam-admin-shell .cam-logout-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  color: #94a3b8;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.cam-admin-shell .cam-logout-btn:hover {
+  background: var(--sidebar-hover);
+  color: var(--surface);
+}
+
+.cam-admin-shell .cam-placeholder-card {
+  background: var(--surface);
+  padding: 32px;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.cam-admin-shell .cam-placeholder-card h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.cam-admin-shell .cam-placeholder-card p {
+  color: var(--text-muted);
+  max-width: 28rem;
+  margin: 16px auto 0;
+}
+
+.cam-admin-shell .showtime-table td.cell-muted {
+  text-align: center;
+  padding: 40px;
+  color: #94a3b8;
+}
+
+.cam-admin-shell .showtime-table td.cell-error {
+  text-align: center;
+  padding: 40px;
+  color: #dc2626;
+}
+
+/* Event detail (/admin/events/[id]) — light surface like main-content */
+.cam-admin-shell .cam-event-detail-wrap {
+  max-width: 48rem;
+}
+
+.cam-admin-shell .cam-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  margin-bottom: 16px;
+}
+
+.cam-admin-shell .cam-back-link:hover {
+  color: var(--primary);
+}
+
+.cam-admin-shell .cam-event-detail-card {
+  padding: 24px 28px;
+}
+
+.cam-admin-shell .cam-event-detail-card h1 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.cam-admin-shell .cam-event-meta-id {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: ui-monospace, monospace;
+  word-break: break-all;
+  margin-bottom: 12px;
+}
+
+.cam-admin-shell .cam-event-desc {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.cam-admin-shell .cam-event-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 4px;
+}
